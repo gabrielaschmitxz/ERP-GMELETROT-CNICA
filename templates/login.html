@@ -2,31 +2,50 @@
 
 {% block title %}Login - ERP Eletrotécnica{% endblock %}
 
+{% block extra_css %}
+<style>
+    body {
+        background: linear-gradient(135deg, #002B5B 0%, #004A8D 100%);
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .login-container {
+        width: 100%;
+        max-width: 400px;
+    }
+    .login-card {
+        border: none;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        border-radius: 10px;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
-<div class="row justify-content-center">
-    <div class="col-md-4">
-        <div class="card">
-            <div class="card-body">
-                <h3 class="card-title text-center mb-4">
-                    <i class="bi bi-lightning-charge text-primary"></i> GM Eletrotécnica
-                </h3>
-                <p class="text-center text-muted mb-4">Sistema de Gestão Empresarial</p>
-                
-                <form method="POST" action="{{ url_for('login') }}">
-                    <div class="mb-3">
-                        <label for="username" class="form-label">Usuário</label>
-                        <input type="text" class="form-control" id="username" name="username" required autofocus>
-                    </div>
-                    <div class="mb-3">
-                        <label for="password" class="form-label">Senha</label>
-                        <input type="password" class="form-control" id="password" name="password" required>
-                    </div>
-                    <button type="submit" class="btn btn-primary w-100">
-                        <i class="bi bi-box-arrow-in-right"></i> Entrar
-                    </button>
-                </form>
-                 
-            </div>
+<div class="login-container">
+    <div class="card login-card">
+        <div class="card-body p-4">
+            <h3 class="card-title text-center mb-4">
+                <i class="bi bi-lightning-charge text-primary"></i> GM Eletrotécnica
+            </h3>
+            <p class="text-center text-muted mb-4">Sistema de Gestão Empresarial</p>
+            
+            <form method="POST" action="{{ url_for('login') }}">
+                <div class="mb-3">
+                    <label for="username" class="form-label">Usuário</label>
+                    <input type="text" class="form-control" id="username" name="username" required autofocus>
+                </div>
+                <div class="mb-3">
+                    <label for="password" class="form-label">Senha</label>
+                    <input type="password" class="form-control" id="password" name="password" required>
+                </div>
+                <button type="submit" class="btn btn-primary w-100">
+                    <i class="bi bi-box-arrow-in-right"></i> Entrar
+                </button>
+            </form>
+             
         </div>
     </div>
 </div>

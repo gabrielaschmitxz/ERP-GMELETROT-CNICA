@@ -53,6 +53,7 @@
     {% block extra_css %}{% endblock %}
 </head>
 <body>
+    {% if session.get('user_id') %}
     <nav class="navbar navbar-dark navbar-expand-lg">
         <div class="container-fluid">
             <a class="navbar-brand" href="{{ url_for('dashboard') }}">
@@ -71,6 +72,7 @@
             </div>
         </div>
     </nav>
+    {% endif %}
 
     <div class="container-fluid">
         <div class="row">
