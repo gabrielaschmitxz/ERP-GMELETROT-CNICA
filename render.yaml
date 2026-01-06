@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: erp-eletrotecnica-web
+    env: python
+    buildCommand: pip install -r requirements_web.txt
+    startCommand: gunicorn app_web:app
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0
+      - key: DATABASE_URL_WEB
+        sync: false  # Você vai configurar manualmente no painel do Render
+

@@ -31,6 +31,12 @@ def index():
         return redirect(url_for('dashboard'))
     return redirect(url_for('login'))
 
+@app.route('/health')
+@app.route('/ping')
+def health_check():
+    """Endpoint de health check para manter a instância ativa"""
+    return jsonify({'status': 'ok', 'timestamp': datetime.now().isoformat()}), 200
+
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     """Página de login"""
@@ -231,4 +237,6 @@ app.register_blueprint(assinaturas.bp)
 app.register_blueprint(relatorios.bp)
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, debug=DEBUG)
+    # Para produção no Render, usar a porta da variável de ambiente
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port, debug=DEBUG)
