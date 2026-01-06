@@ -22,11 +22,19 @@
             background-color: var(--accent-color);
             min-height: calc(100vh - 56px);
             padding: 20px 0;
+            position: fixed;
+            left: 0;
+            top: 56px;
+            height: calc(100vh - 56px);
+            overflow-y: auto;
+            z-index: 1000;
+            transition: transform 0.3s ease;
         }
         .sidebar .nav-link {
             color: var(--primary-color);
             padding: 10px 20px;
             margin: 5px 0;
+            white-space: nowrap;
         }
         .sidebar .nav-link:hover {
             background-color: var(--secondary-color);
@@ -49,6 +57,133 @@
             background-color: var(--secondary-color);
             border-color: var(--secondary-color);
         }
+        
+        /* Responsividade Mobile */
+        @media (max-width: 991.98px) {
+            .sidebar {
+                transform: translateX(-100%);
+                width: 280px;
+                box-shadow: 2px 0 10px rgba(0,0,0,0.1);
+            }
+            .sidebar.show {
+                transform: translateX(0);
+            }
+            .sidebar-overlay {
+                display: none;
+                position: fixed;
+                top: 56px;
+                left: 0;
+                width: 100%;
+                height: calc(100vh - 56px);
+                background-color: rgba(0,0,0,0.5);
+                z-index: 999;
+            }
+            .sidebar-overlay.show {
+                display: block;
+            }
+            .main-content {
+                margin-left: 0 !important;
+                width: 100%;
+            }
+            .navbar-nav .navbar-text {
+                display: none;
+            }
+            .navbar-nav .btn {
+                font-size: 0.875rem;
+                padding: 0.25rem 0.5rem;
+            }
+            .navbar-nav .btn i {
+                font-size: 1rem;
+            }
+            .navbar-nav .btn span {
+                display: none;
+            }
+            .navbar-brand span {
+                display: inline !important;
+            }
+        }
+        
+        @media (max-width: 767.98px) {
+            .navbar-brand span {
+                font-size: 0.9rem;
+            }
+            .sidebar {
+                width: 100%;
+                max-width: 300px;
+            }
+        }
+        
+        @media (min-width: 992px) {
+            .sidebar {
+                position: relative;
+                transform: translateX(0) !important;
+                height: auto;
+                top: 0;
+            }
+            .main-content {
+                margin-left: 0;
+            }
+            #sidebarToggle {
+                display: none;
+            }
+        }
+        
+        /* Tabelas responsivas */
+        .table-responsive {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+        
+        /* Formulários responsivos */
+        @media (max-width: 767.98px) {
+            .col-md-6, .col-md-4, .col-md-3, .col-md-2 {
+                margin-bottom: 1rem;
+            }
+            .card-body {
+                padding: 1rem;
+            }
+            .btn-group {
+                flex-direction: column;
+                width: 100%;
+            }
+            .btn-group .btn {
+                width: 100%;
+                margin-bottom: 0.5rem;
+            }
+        }
+        
+        /* Melhorias para telas muito pequenas */
+        @media (max-width: 575.98px) {
+            .container-fluid {
+                padding-left: 0.75rem;
+                padding-right: 0.75rem;
+            }
+            h2 {
+                font-size: 1.5rem;
+            }
+            .card-title {
+                font-size: 1.25rem;
+            }
+            .d-flex.gap-1, .d-flex.gap-2 {
+                flex-wrap: wrap;
+            }
+            .d-flex.gap-1 .btn, .d-flex.gap-2 .btn {
+                margin-bottom: 0.25rem;
+            }
+        }
+        
+        /* Ajustes para formulários em mobile */
+        @media (max-width: 767.98px) {
+            .form-select, .form-control {
+                font-size: 16px; /* Evita zoom no iOS */
+            }
+            .modal-dialog {
+                margin: 0.5rem;
+            }
+            .modal-content {
+                border-radius: 0.5rem;
+            }
+        }
     </style>
     {% block extra_css %}{% endblock %}
 </head>
@@ -56,66 +191,76 @@
     {% if session.get('user_id') %}
     <nav class="navbar navbar-dark navbar-expand-lg">
         <div class="container-fluid">
+            <button class="navbar-toggler d-lg-none" type="button" id="sidebarToggle" aria-label="Toggle sidebar">
+                <span class="navbar-toggler-icon"></span>
+            </button>
             <a class="navbar-brand" href="{{ url_for('dashboard') }}">
-                <i class="bi bi-lightning-charge"></i> GMEletrotécnica
+                <i class="bi bi-lightning-charge"></i> <span class="d-none d-sm-inline">GMEletrotécnica</span>
             </a>
-            <div class="navbar-nav ms-auto">
-                <span class="navbar-text text-white me-3">
-                    <i class="bi bi-person-circle"></i> {{ session.get('nome', 'Usuário') }}
-                </span>
-                <a class="btn btn-outline-light btn-sm me-2" href="{{ url_for('alterar_senha') }}">
-                    <i class="bi bi-key"></i> Alterar Senha
-                </a>
-                <a class="btn btn-outline-light btn-sm" href="{{ url_for('logout') }}">
-                    <i class="bi bi-box-arrow-right"></i> Sair
-                </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <div class="navbar-nav ms-auto">
+                    <span class="navbar-text text-white me-3 d-none d-md-inline">
+                        <i class="bi bi-person-circle"></i> {{ session.get('nome', 'Usuário') }}
+                    </span>
+                    <a class="btn btn-outline-light btn-sm me-2" href="{{ url_for('alterar_senha') }}">
+                        <i class="bi bi-key"></i> <span class="d-none d-md-inline">Alterar Senha</span>
+                    </a>
+                    <a class="btn btn-outline-light btn-sm" href="{{ url_for('logout') }}">
+                        <i class="bi bi-box-arrow-right"></i> <span class="d-none d-md-inline">Sair</span>
+                    </a>
+                </div>
             </div>
         </div>
     </nav>
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
     {% endif %}
 
     <div class="container-fluid">
         <div class="row">
             {% if session.get('user_id') %}
-            <div class="col-md-2 sidebar">
+            <div class="col-lg-2 col-md-3 sidebar" id="sidebar">
                 <nav class="nav flex-column">
                     <a class="nav-link" href="{{ url_for('dashboard') }}">
-                        <i class="bi bi-speedometer2"></i> Início/Dash
+                        <i class="bi bi-speedometer2"></i> <span>Início/Dash</span>
                     </a>
                     <a class="nav-link" href="{{ url_for('ordens.nova') }}">
-                        <i class="bi bi-file-earmark-plus"></i> Nova Ordem de Serviço
+                        <i class="bi bi-file-earmark-plus"></i> <span>Nova Ordem de Serviço</span>
                     </a>
                     <a class="nav-link" href="{{ url_for('ordens.listar') }}">
-                        <i class="bi bi-list-ul"></i> Painel de Atendimento
+                        <i class="bi bi-list-ul"></i> <span>Painel de Atendimento</span>
                     </a>
                     <a class="nav-link" href="{{ url_for('clientes.listar') }}">
-                        <i class="bi bi-people"></i> Clientes
+                        <i class="bi bi-people"></i> <span>Clientes</span>
                     </a>
                     <a class="nav-link" href="{{ url_for('materiais.listar') }}">
-                        <i class="bi bi-tools"></i> Materiais
+                        <i class="bi bi-tools"></i> <span>Materiais</span>
                     </a>
                     <a class="nav-link" href="{{ url_for('servicos.listar') }}">
-                        <i class="bi bi-gear"></i> Serviços
+                        <i class="bi bi-gear"></i> <span>Serviços</span>
                     </a>
                     <a class="nav-link" href="{{ url_for('configuracoes.index') }}">
-                        <i class="bi bi-sliders"></i> Formas de Pagamento / Impostos / BDI
+                        <i class="bi bi-sliders"></i> <span class="d-none d-lg-inline">Formas de Pagamento / Impostos / BDI</span>
+                        <span class="d-lg-none">Pagamento / Impostos / BDI</span>
                     </a>
                     <a class="nav-link" href="{{ url_for('assinaturas.index') }}">
-                        <i class="bi bi-pencil-square"></i> Assinaturas
+                        <i class="bi bi-pencil-square"></i> <span>Assinaturas</span>
                     </a>
                     <a class="nav-link" href="{{ url_for('relatorios.configurar') }}">
-                        <i class="bi bi-file-earmark-image"></i> Relatório
+                        <i class="bi bi-file-earmark-image"></i> <span>Relatório</span>
                     </a>
                     {% if session.get('admin') %}
                     <a class="nav-link" href="{{ url_for('usuarios.listar') }}">
-                        <i class="bi bi-person-gear"></i> Usuários
+                        <i class="bi bi-person-gear"></i> <span>Usuários</span>
                     </a>
                     {% endif %}
                 </nav>
             </div>
             {% endif %}
             
-            <div class="{% if session.get('user_id') %}col-md-10{% else %}col-12{% endif %}">
+            <div class="{% if session.get('user_id') %}col-lg-10 col-md-9{% else %}col-12{% endif %} main-content">
                 <div class="container-fluid py-4">
                     {% with messages = get_flashed_messages(with_categories=true) %}
                         {% if messages %}
@@ -151,6 +296,42 @@
             // Optionally, return true to suppress the default browser error handling
             return false;
         };
+        
+        // Sidebar toggle para mobile
+        document.addEventListener('DOMContentLoaded', function() {
+            const sidebarToggle = document.getElementById('sidebarToggle');
+            const sidebar = document.getElementById('sidebar');
+            const sidebarOverlay = document.getElementById('sidebarOverlay');
+            
+            if (sidebarToggle && sidebar) {
+                sidebarToggle.addEventListener('click', function() {
+                    sidebar.classList.toggle('show');
+                    if (sidebarOverlay) {
+                        sidebarOverlay.classList.toggle('show');
+                    }
+                });
+                
+                if (sidebarOverlay) {
+                    sidebarOverlay.addEventListener('click', function() {
+                        sidebar.classList.remove('show');
+                        sidebarOverlay.classList.remove('show');
+                    });
+                }
+                
+                // Fechar sidebar ao clicar em um link (mobile)
+                if (window.innerWidth < 992) {
+                    const navLinks = sidebar.querySelectorAll('.nav-link');
+                    navLinks.forEach(function(link) {
+                        link.addEventListener('click', function() {
+                            sidebar.classList.remove('show');
+                            if (sidebarOverlay) {
+                                sidebarOverlay.classList.remove('show');
+                            }
+                        });
+                    });
+                }
+            }
+        });
     </script>
 </body>
 </html>
