@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+
+{% block title %}Serviços - ERP Eletrotécnica{% endblock %}
+
+{% block content %}
+<h2 class="mb-4"><i class="bi bi-gear"></i> Serviços</h2>
+
+<div class="card">
+    <div class="card-body">
+        <div class="text-end mb-3">
+            <a href="{{ url_for('servicos.novo') }}" class="btn btn-success">
+                <i class="bi bi-plus-circle"></i> Novo Serviço
+            </a>
+        </div>
+
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Nome</th>
+                        <th>Preço Unit.</th>
+                        <th>Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for servico in servicos %}
+                    <tr>
+                        <td>{{ servico.id }}</td>
+                        <td>{{ servico.nome }}</td>
+                        <td>R$ {{ "%.2f"|format(servico.preco_unit) }}</td>
+                        <td>
+                            <div class="d-flex gap-1">
+                                <a href="{{ url_for('servicos.editar', id=servico.id) }}" 
+                                   class="btn btn-sm btn-primary">
+                                    <i class="bi bi-pencil"></i> Editar
+                                </a>
+                                <form method="POST" action="{{ url_for('servicos.excluir', id=servico.id) }}" 
+                                      class="d-inline" onsubmit="return confirm('Deseja realmente excluir?');">
+                                    <button type="submit" class="btn btn-sm btn-danger">
+                                        <i class="bi bi-trash"></i> Excluir
+                                    </button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="4" class="text-center">Nenhum serviço encontrado</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+

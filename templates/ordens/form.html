@@ -1,0 +1,1250 @@
+{% extends "base.html" %}
+
+{% block title %}{{ 'Editar' if ordem else 'Nova' }} Ordem de Serviço - ERP Eletrotécnica{% endblock %}
+
+{% block extra_css %}
+<style>
+    .item-row {
+        border-bottom: 1px solid #dee2e6;
+        padding: 10px 0;
+    }
+    .item-row:last-child {
+        border-bottom: none;
+    }
+    .resumo-box {
+        background-color: #f8f9fa;
+        padding: 15px;
+        border-radius: 5px;
+        font-family: 'Courier New', monospace;
+    }
+    .loading {
+        display: none;
+    }
+    .loading.show {
+        display: inline-block;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<h2 class="mb-4"><i class="bi bi-file-earmark-plus"></i> {{ 'Editar' if ordem else 'Nova' }} Ordem de Serviço</h2>
+
+<form id="ordemForm">
+    <input type="hidden" id="ordem_id" value="{{ ordem.id if ordem else '' }}">
+    <!-- Cliente -->
+    <div class="card mb-3">
+        <div class="card-header"><strong>Cliente</strong></div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-10" style="position: relative;">
+                    <label for="cliente_id" class="form-label">Cliente *</label>
+                    <input type="text" class="form-control" id="cliente_search" 
+                           placeholder="Digite para buscar cliente..." 
+                           autocomplete="off"
+                           {% if ordem and ordem.cliente_id %}value="{{ ordem.cliente_nome }}"{% endif %}>
+                    <input type="hidden" id="cliente_id" name="cliente_id" 
+                           {% if ordem and ordem.cliente_id %}value="{{ ordem.cliente_id }}"{% endif %} required>
+                    <div id="cliente_results" class="list-group" style="position: absolute; z-index: 1000; max-height: 200px; overflow-y: auto; display: none; width: 100%; background: white; border: 1px solid #ddd; border-radius: 4px; margin-top: 2px;"></div>
+                </div>
+                <div class="col-md-2 d-flex align-items-end">
+                    <a href="{{ url_for('clientes.novo') }}" target="_blank" class="btn btn-success w-100">
+                        <i class="bi bi-plus-circle"></i> Novo
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Endereços e Distância -->
+    <div class="card mb-3">
+        <div class="card-header"><strong>Endereços e Distância</strong></div>
+        <div class="card-body">
+            <div class="row mb-3">
+                <div class="col-md-12">
+                    <label for="endereco_origem" class="form-label">Endereço de Origem / Coordenadas</label>
+                    <input type="text" class="form-control" id="endereco_origem" value="{{ ordem.endereco_origem if ordem else '' }}" placeholder="Endereço completo ou coordenadas (ex: -23.5505, -46.6333)">
+                </div>
+            </div>
+            <div class="row mb-3">
+                <div class="col-md-12">
+                    <label for="endereco_destino" class="form-label">Endereço de Destino / Coordenadas</label>
+                    <input type="text" class="form-control" id="endereco_destino" value="{{ ordem.endereco_destino if ordem else '' }}" placeholder="Endereço completo ou coordenadas (ex: -23.5505, -46.6333)">
+                </div>
+            </div>
+            <div class="row mb-3">
+                <div class="col-md-4">
+                    <label for="data_ordem" class="form-label">Data da Ordem *</label>
+                    <input type="date" class="form-control" id="data_ordem" value="{% if ordem and ordem.data %}{{ ordem.data.strftime('%Y-%m-%d') }}{% endif %}" required>
+                </div>
+                <div class="col-md-4">
+                    <label for="km_manual" class="form-label">KM</label>
+                    <input type="number" class="form-control" id="km_manual" value="{% if ordem and ordem.km %}{{ ordem.km }}{% endif %}" step="0.01" min="0" placeholder="Digite os km se já souber">
+                </div>
+                <div class="col-md-4 d-flex align-items-end">
+                    <button type="button" class="btn btn-primary w-100" id="btnCalcularDistancia">
+                        <i class="bi bi-geo-alt"></i> Calcular Distância
+                    </button>
+                </div>
+            </div>
+            <div class="row mb-3">
+                <div class="col-md-12">
+                    <span class="loading" id="loadingDistancia">
+                        <span class="spinner-border spinner-border-sm"></span> Calculando...
+                    </span>
+                </div>
+            </div>
+            <div id="distanciaResultado" style="display: none;">
+                <div class="alert alert-info">
+                    <strong>Distância:</strong> <span id="distanciaKm">0</span> km<br>
+                    <div class="row mt-2">
+                        <div class="col-md-4">
+                            <label for="taxa_km" class="form-label">Taxa por KM (R$)</label>
+                            <input type="number" class="form-control" id="taxa_km" value="5.00" step="0.01" min="0">
+                        </div>
+                        <div class="col-md-4">
+                            <label for="valor_deslocamento" class="form-label">Frete/Deslocamento (R$)</label>
+                            <input type="number" class="form-control" id="valor_deslocamento" step="0.01" min="0" readonly>
+                        </div>
+                        <div class="col-md-4 d-flex align-items-end">
+                            <button type="button" class="btn btn-secondary" id="btnRecalcularTaxa">
+                                Recalcular Taxa
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Serviços -->
+    <div class="card mb-3">
+        <div class="card-header"><strong>Serviços</strong></div>
+        <div class="card-body">
+            <div id="servicosLista"></div>
+            <div class="d-flex gap-2">
+                <button type="button" class="btn btn-success btn-sm" id="btnAddServico">
+                    <i class="bi bi-plus-circle"></i> Adicionar Serviço Existente
+                </button>
+                <a href="{{ url_for('servicos.novo') }}" target="_blank" class="btn btn-success btn-sm">
+                    <i class="bi bi-plus-circle"></i> Novo
+                    </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Materiais -->
+    <div class="card mb-3">
+        <div class="card-header"><strong>Materiais Utilizados</strong></div>
+        <div class="card-body">
+            <div id="materiaisLista"></div>
+            <div class="d-flex gap-2">
+                <button type="button" class="btn btn-success btn-sm" id="btnAddMaterial">
+                    <i class="bi bi-plus-circle"></i> Adicionar Material Existente
+                </button>
+                <a href="{{ url_for('materiais.novo') }}" target="_blank" class="btn btn-success btn-sm">
+                    <i class="bi bi-plus-circle"></i> Novo
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Adicionais (Impostos, BDI, Descontos) -->
+    <div class="card mb-3">
+        <div class="card-header"><strong>Adicionais (Impostos, BDI, Descontos)</strong></div>
+        <div class="card-body">
+            <div class="row mb-3">
+                <div class="col-md-5">
+                    <label class="form-label">Imposto</label>
+                    <select class="form-select" id="imposto_select">
+                        <option value="">Selecione um imposto...</option>
+                        {% for imposto in impostos %}
+                        <option value="{{ imposto.id }}" data-descricao="{{ imposto.descricao }}" data-valor="{{ imposto.valor }}">
+                            {{ imposto.descricao }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Valor (R$)</label>
+                    <div class="input-group">
+                        <span class="input-group-text">R$</span>
+                        <input type="number" class="form-control" id="imposto_valor" step="0.01" min="0" placeholder="0,00">
+                    </div>
+                </div>
+                <div class="col-md-2 d-flex align-items-end">
+                    <button type="button" class="btn btn-primary w-100" id="btnAddImposto">
+                        <i class="bi bi-plus"></i> Adicionar
+                    </button>
+                </div>
+                <div class="col-md-2 d-flex align-items-end">
+                    <a href="{{ url_for('configuracoes.impostos') }}" target="_blank" class="btn btn-success w-100">
+                        <i class="bi bi-plus-circle"></i> Novo
+                    </a>
+                </div>
+            </div>
+            <div class="row mb-3">
+                <div class="col-md-5">
+                    <label class="form-label">BDI</label>
+                    <select class="form-select" id="bdi_select">
+                        <option value="">Selecione um BDI...</option>
+                        {% for bdi in bdi_list %}
+                        <option value="{{ bdi.id }}" data-descricao="{{ bdi.descricao }}" data-valor="{{ bdi.valor }}">
+                            {{ bdi.descricao }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Valor (R$)</label>
+                    <div class="input-group">
+                        <span class="input-group-text">R$</span>
+                        <input type="number" class="form-control" id="bdi_valor" step="0.01" min="0" placeholder="0,00">
+                    </div>
+                </div>
+                <div class="col-md-2 d-flex align-items-end">
+                    <button type="button" class="btn btn-primary w-100" id="btnAddBDI">
+                        <i class="bi bi-plus"></i> Adicionar
+                    </button>
+                </div>
+                <div class="col-md-2 d-flex align-items-end">
+                    <a href="{{ url_for('configuracoes.bdi') }}" target="_blank" class="btn btn-success w-100">
+                        <i class="bi bi-plus-circle"></i> Novo
+                    </a>
+                </div>
+            </div>
+            <div class="row mb-3">
+                <div class="col-md-5">
+                    <label class="form-label">Desconto</label>
+                    <div class="input-group">
+                        <span class="input-group-text">R$</span>
+                        <input type="number" class="form-control" id="desconto_valor" step="0.01" min="0" placeholder="0,00">
+                    </div>
+                </div>
+                <div class="col-md-2 d-flex align-items-end">
+                    <button type="button" class="btn btn-primary w-100" id="btnAddDesconto">
+                        <i class="bi bi-plus"></i> Adicionar
+                    </button>
+                </div>
+            </div>
+            <div id="adicionaisLista"></div>
+        </div>
+    </div>
+
+    <!-- Forma de Pagamento e Assinatura -->
+    <div class="card mb-3">
+        <div class="card-header"><strong>Forma de Pagamento e Assinatura</strong></div>
+        <div class="card-body">
+            <div class="row mb-3">
+                <div class="col-md-10">
+                    <label for="forma_pagamento_id" class="form-label">Forma de Pagamento *</label>
+                    <select class="form-select" id="forma_pagamento_id" required>
+                        <option value="">Selecione...</option>
+                        {% for forma in formas_pagamento %}
+                        <option value="{{ forma.id }}" data-tipo="{{ forma.tipo }}" data-parcelas="{{ forma.parcelas_max }}"
+                            {% if ordem and ordem.forma_pagamento_id == forma.id %}selected{% endif %}>
+                            {{ forma.nome }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2 d-flex align-items-end">
+                    <a href="{{ url_for('configuracoes.pagamento') }}" target="_blank" class="btn btn-success w-100">
+                        <i class="bi bi-plus-circle"></i> Novo
+                    </a>
+                </div>
+            </div>
+            <div class="row mb-3">
+                <div class="col-md-3" id="parcelasContainer" style="display: none;">
+                    <label for="parcelas" class="form-label">Número de Parcelas</label>
+                    <input type="number" class="form-control" id="parcelas" min="1" value="{{ ordem.parcelas if ordem else '1' }}">
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-md-10">
+                    <label for="assinatura_id" class="form-label">Assinatura</label>
+                    <select class="form-select" id="assinatura_id">
+                        <option value="">Nenhuma</option>
+                        {% for assinatura in assinaturas %}
+                        <option value="{{ assinatura.id }}" {% if ordem and ordem.assinatura_id == assinatura.id %}selected{% endif %}>
+                            {{ assinatura.nome }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2 d-flex align-items-end">
+                    <a href="{{ url_for('assinaturas.nova') }}" target="_blank" class="btn btn-success w-100">
+                        <i class="bi bi-plus-circle"></i> Nova
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Resumo Financeiro -->
+    <div class="card mb-3">
+        <div class="card-header"><strong>Resumo Financeiro</strong></div>
+        <div class="card-body">
+            <div class="resumo-box" id="resumoFinanceiro">
+                <div>(+ ) Materiais: R$ 0.00</div>
+                <div>(+ ) Serviços: R$ 0.00</div>
+                <div>(+ ) Frete/Deslocamento: R$ 0.00</div>
+                <div>(+ ) Impostos: R$ 0.00</div>
+                <div>(+ ) BDI: R$ 0.00</div>
+                <div>(- ) Descontos: R$ 0.00</div>
+                <div>--------------------------------</div>
+                <div><strong>Total Final: R$ 0.00</strong></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Botões -->
+    <div class="d-flex gap-2">
+        <button type="submit" class="btn btn-primary btn-lg">
+            <i class="bi bi-save"></i> Salvar Ordem de Serviço
+        </button>
+        <a href="{{ url_for('ordens.listar') }}" class="btn btn-secondary btn-lg">
+            <i class="bi bi-x-circle"></i> Cancelar
+        </a>
+    </div>
+</form>
+
+<!-- Modal para Adicionar/Editar Serviço -->
+<div class="modal fade" id="modalServico" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Adicionar Serviço</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label for="servico_search" class="form-label">Serviço</label>
+                    <input type="text" class="form-control" id="servico_search" 
+                           placeholder="Digite para buscar serviço..." 
+                           autocomplete="off">
+                    <input type="hidden" id="servico_select">
+                    <div id="servico_results" class="list-group" style="position: absolute; z-index: 1000; max-height: 200px; overflow-y: auto; display: none; width: 100%;"></div>
+                </div>
+                <div class="mb-3">
+                    <label for="servico_tempo" class="form-label">Tempo (horas)</label>
+                    <input type="number" class="form-control" id="servico_tempo" step="0.01" min="0" value="0">
+                </div>
+                <div class="mb-3">
+                    <label for="servico_taxa" class="form-label">Valor Taxa/Hora (R$)</label>
+                    <input type="number" class="form-control" id="servico_taxa" step="0.01" min="0" value="0">
+                </div>
+                <div class="mb-3">
+                    <label for="servico_qtd" class="form-label">Quantidade</label>
+                    <input type="number" class="form-control" id="servico_qtd" min="1" value="1">
+                </div>
+                <div class="mb-3">
+                    <label for="servico_preco" class="form-label">Preço Unitário (R$)</label>
+                    <input type="number" class="form-control" id="servico_preco" step="0.01" min="0" value="0" readonly>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="btnSalvarServico">Salvar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Adicionar/Editar Material -->
+<div class="modal fade" id="modalMaterial" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Adicionar Material</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3" style="position: relative;">
+                    <label for="material_search" class="form-label">Material</label>
+                    <input type="text" class="form-control" id="material_search" 
+                           placeholder="Digite para buscar material..." 
+                           autocomplete="off">
+                    <input type="hidden" id="material_select">
+                    <div id="material_results" class="list-group" style="position: absolute; z-index: 1000; max-height: 200px; overflow-y: auto; display: none; width: 100%; background: white; border: 1px solid #ddd; border-radius: 4px; margin-top: 2px;"></div>
+                </div>
+                <div class="mb-3">
+                    <label for="material_qtd" class="form-label">Quantidade</label>
+                    <input type="number" class="form-control" id="material_qtd" min="1" value="1">
+                </div>
+                <div class="mb-3">
+                    <label for="material_preco" class="form-label">Preço Unitário (R$)</label>
+                    <input type="number" class="form-control" id="material_preco" step="0.01" min="0" value="0">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="btnSalvarMaterial">Salvar</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+let servicos = [];
+let materiais = [];
+let adicionais = [];
+let distanceData = null;
+let servicosDisponiveis = [];
+let materiaisDisponiveis = [];
+
+// Carregar serviços e materiais disponíveis (não mais necessário com busca, mas mantido para compatibilidade)
+async function carregarServicos() {
+    try {
+        const response = await fetch('{{ url_for("servicos.api_buscar") }}');
+        servicosDisponiveis = await response.json();
+    } catch (error) {
+        console.error('Erro ao carregar serviços:', error);
+    }
+}
+
+async function carregarMateriais() {
+    try {
+        const response = await fetch('{{ url_for("materiais.api_buscar") }}');
+        materiaisDisponiveis = await response.json();
+    } catch (error) {
+        console.error('Erro ao carregar materiais:', error);
+    }
+}
+
+// Calcular distância
+document.getElementById('btnCalcularDistancia').addEventListener('click', async function() {
+    const kmManual = parseFloat(document.getElementById('km_manual').value);
+    const taxaKm = parseFloat(document.getElementById('taxa_km').value) || 5.0;
+    
+    // Se o usuário preencheu KM manual, usar esse valor
+    if (kmManual && kmManual > 0) {
+        distanceData = {
+            distance_km: kmManual,
+            displacement_cost: kmManual * taxaKm
+        };
+        document.getElementById('distanciaKm').textContent = distanceData.distance_km.toFixed(2);
+        document.getElementById('valor_deslocamento').value = distanceData.displacement_cost.toFixed(2);
+        document.getElementById('distanciaResultado').style.display = 'block';
+        atualizarResumo();
+        return;
+    }
+    
+    // Caso contrário, calcular pela API usando endereços
+    const origem = document.getElementById('endereco_origem').value;
+    const destino = document.getElementById('endereco_destino').value;
+    
+    if (!origem || !destino) {
+        alert('Preencha ambos os endereços ou informe os KM manualmente!');
+        return;
+    }
+    
+    document.getElementById('loadingDistancia').classList.add('show');
+    this.disabled = true;
+    
+    try {
+        const response = await fetch('{{ url_for("ordens.calcular_distancia") }}', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({origem, destino, taxa_km: taxaKm})
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            distanceData = result.data;
+            document.getElementById('distanciaKm').textContent = distanceData.distance_km.toFixed(2);
+            document.getElementById('valor_deslocamento').value = distanceData.displacement_cost.toFixed(2);
+            // Atualizar campo KM manual com o valor calculado
+            document.getElementById('km_manual').value = distanceData.distance_km.toFixed(2);
+            document.getElementById('distanciaResultado').style.display = 'block';
+            atualizarResumo();
+        } else {
+            alert('Erro: ' + result.error);
+        }
+    } catch (error) {
+        alert('Erro ao calcular distância: ' + error.message);
+    } finally {
+        document.getElementById('loadingDistancia').classList.remove('show');
+        this.disabled = false;
+    }
+});
+
+// Permitir calcular usando KM manual ao pressionar Enter ou ao perder foco
+document.getElementById('km_manual').addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') {
+        document.getElementById('btnCalcularDistancia').click();
+    }
+});
+
+document.getElementById('km_manual').addEventListener('blur', function() {
+    const kmManual = parseFloat(this.value);
+    const taxaKm = parseFloat(document.getElementById('taxa_km').value) || 5.0;
+    
+    if (kmManual && kmManual > 0) {
+        distanceData = {
+            distance_km: kmManual,
+            displacement_cost: kmManual * taxaKm
+        };
+        document.getElementById('distanciaKm').textContent = distanceData.distance_km.toFixed(2);
+        document.getElementById('valor_deslocamento').value = distanceData.displacement_cost.toFixed(2);
+        document.getElementById('distanciaResultado').style.display = 'block';
+        atualizarResumo();
+    }
+});
+
+// Recalcular taxa
+document.getElementById('btnRecalcularTaxa').addEventListener('click', function() {
+    if (!distanceData) {
+        // Tentar usar KM manual se disponível
+        const kmManual = parseFloat(document.getElementById('km_manual').value);
+        if (kmManual && kmManual > 0) {
+            distanceData = { distance_km: kmManual };
+        } else {
+            alert('Calcule a distância primeiro ou informe os KM manualmente!');
+            return;
+        }
+    }
+    
+    const taxaKm = parseFloat(document.getElementById('taxa_km').value) || 5.0;
+    distanceData.displacement_cost = distanceData.distance_km * taxaKm;
+    document.getElementById('valor_deslocamento').value = distanceData.displacement_cost.toFixed(2);
+    atualizarResumo();
+});
+
+// Busca de cliente com autocomplete
+let clienteSearchTimeout;
+const clienteSearchInput = document.getElementById('cliente_search');
+if (clienteSearchInput) {
+    // Carregar opções ao focar no campo
+    clienteSearchInput.addEventListener('focus', function() {
+        if (this.value.trim().length < 2) {
+            this.dispatchEvent(new Event('input'));
+        }
+    });
+    
+    clienteSearchInput.addEventListener('input', function() {
+        const query = this.value.trim();
+        const resultsDiv = document.getElementById('cliente_results');
+        const hiddenInput = document.getElementById('cliente_id');
+        
+        clearTimeout(clienteSearchTimeout);
+        
+        clienteSearchTimeout = setTimeout(async () => {
+            try {
+                const searchQuery = query.length >= 2 ? query : '';
+                const response = await fetch(`{{ url_for("clientes.api_buscar") }}?q=${encodeURIComponent(searchQuery)}`);
+                if (!response.ok) {
+                    console.error('Erro na resposta:', response.status);
+                    return;
+                }
+                const clientes = await response.json();
+                
+                if (resultsDiv) {
+                    resultsDiv.innerHTML = '';
+                    if (!clientes || clientes.length === 0) {
+                        resultsDiv.innerHTML = '<div class="list-group-item">Nenhum cliente encontrado</div>';
+                    } else {
+                        clientes.forEach(cliente => {
+                            const item = document.createElement('button');
+                            item.type = 'button';
+                            item.className = 'list-group-item list-group-item-action';
+                            item.textContent = cliente.nome;
+                            item.onmousedown = (e) => {
+                                e.preventDefault(); // Prevenir blur do campo
+                                isSelectingResult = true;
+                            };
+                            item.onclick = () => {
+                                isSelectingResult = false;
+                                clienteSearchInput.value = cliente.nome;
+                                if (hiddenInput) hiddenInput.value = cliente.id;
+                                resultsDiv.style.display = 'none';
+                                clienteSearchInput.blur(); // Remover foco após seleção
+                            };
+                            resultsDiv.appendChild(item);
+                        });
+                    }
+                    resultsDiv.style.display = 'block';
+                }
+            } catch (error) {
+                console.error('Erro ao buscar clientes:', error);
+            }
+        }, 50);
+    });
+} else {
+    console.error('Campo cliente_search não encontrado!');
+}
+
+// Fechar resultados ao clicar fora (com delay para permitir clique nos resultados)
+let isSelectingResult = false;
+document.addEventListener('mousedown', function(e) {
+    // Se clicou em um resultado, marcar que está selecionando
+    if (e.target.closest('#cliente_results') || e.target.closest('#servico_results') || e.target.closest('#material_results')) {
+        isSelectingResult = true;
+    }
+});
+
+document.addEventListener('click', function(e) {
+    // Se não clicou no campo de busca nem nos resultados, fechar
+    if (!e.target.closest('#cliente_search') && !e.target.closest('#cliente_results')) {
+        const resultsDiv = document.getElementById('cliente_results');
+        if (resultsDiv) resultsDiv.style.display = 'none';
+    }
+    if (!e.target.closest('#servico_search') && !e.target.closest('#servico_results')) {
+        const resultsDiv = document.getElementById('servico_results');
+        if (resultsDiv) resultsDiv.style.display = 'none';
+    }
+    if (!e.target.closest('#material_search') && !e.target.closest('#material_results')) {
+        const resultsDiv = document.getElementById('material_results');
+        if (resultsDiv) resultsDiv.style.display = 'none';
+    }
+    isSelectingResult = false;
+});
+
+// Busca de serviço com autocomplete (será inicializado quando o modal abrir)
+let servicoSearchTimeout;
+function initServicoSearch() {
+    const servicoSearchInput = document.getElementById('servico_search');
+    if (servicoSearchInput && !servicoSearchInput.dataset.initialized) {
+        servicoSearchInput.dataset.initialized = 'true';
+        
+        // Carregar opções ao focar no campo (apenas se estiver vazio e não estiver selecionando resultado)
+        servicoSearchInput.addEventListener('focus', function() {
+            if (isSelectingResult) return; // Não fazer busca se estiver selecionando resultado
+            const currentValue = this.value.trim();
+            if (currentValue.length === 0) {
+                // Só carregar tudo se o campo estiver completamente vazio
+                this.dispatchEvent(new Event('input'));
+            }
+        });
+        
+        servicoSearchInput.addEventListener('blur', function() {
+            // Delay para permitir clique nos resultados antes de fechar
+            setTimeout(() => {
+                if (!isSelectingResult) {
+                    const resultsDiv = document.getElementById('servico_results');
+                    if (resultsDiv && !document.activeElement.closest('#servico_results')) {
+                        resultsDiv.style.display = 'none';
+                    }
+                }
+            }, 200);
+        });
+        
+        servicoSearchInput.addEventListener('input', function() {
+            if (isSelectingResult) return; // Não fazer busca se estiver selecionando resultado
+            
+            const query = this.value.trim();
+            const resultsDiv = document.getElementById('servico_results');
+            const hiddenInput = document.getElementById('servico_select');
+            
+            clearTimeout(servicoSearchTimeout);
+            
+            // Mostrar loading enquanto busca
+            if (resultsDiv && query.length >= 2) {
+                resultsDiv.innerHTML = '<div class="list-group-item">Buscando...</div>';
+                resultsDiv.style.display = 'block';
+            }
+            
+            servicoSearchTimeout = setTimeout(async () => {
+                try {
+                    // Sempre enviar a query, mesmo se vazia (para mostrar todas as opções)
+                    const searchQuery = query;
+                    console.log('[DEBUG] Buscando serviços com query:', searchQuery || '(vazio - todas as opções)');
+                    const startTime = performance.now();
+                    
+                    const response = await fetch(`{{ url_for("servicos.api_buscar") }}?q=${encodeURIComponent(searchQuery)}`);
+                    if (!response.ok) {
+                        console.error('Erro na resposta:', response.status);
+                        if (resultsDiv) {
+                            resultsDiv.innerHTML = '<div class="list-group-item text-danger">Erro ao buscar serviços</div>';
+                        }
+                        return;
+                    }
+                    const servicos = await response.json();
+                    
+                    const endTime = performance.now();
+                    console.log(`[DEBUG] Busca concluída em ${(endTime - startTime).toFixed(2)}ms. Resultados:`, servicos.length);
+                    
+                    if (resultsDiv) {
+                        resultsDiv.innerHTML = '';
+                        if (!servicos || servicos.length === 0) {
+                            resultsDiv.innerHTML = '<div class="list-group-item">Nenhum serviço encontrado</div>';
+                        } else {
+                            console.log('[DEBUG] Exibindo', servicos.length, 'serviços');
+                            servicos.forEach((servico, index) => {
+                                const item = document.createElement('button');
+                                item.type = 'button';
+                                item.className = 'list-group-item list-group-item-action';
+                                item.innerHTML = `${servico.nome} - R$ ${servico.preco_unit.toFixed(2)}`;
+                                item.dataset.id = servico.id;
+                                item.dataset.preco = servico.preco_unit;
+                                item.dataset.tempo = servico.tempo_h || 0;
+                                item.onmousedown = (e) => {
+                                    e.preventDefault(); // Prevenir blur do campo
+                                    isSelectingResult = true;
+                                };
+                                item.onclick = () => {
+                                    isSelectingResult = false;
+                                    servicoSearchInput.value = servico.nome;
+                                    if (hiddenInput) hiddenInput.value = servico.id;
+                                    const precoInput = document.getElementById('servico_preco');
+                                    const tempoInput = document.getElementById('servico_tempo');
+                                    if (precoInput) precoInput.value = servico.preco_unit.toFixed(2);
+                                    if (tempoInput) tempoInput.value = (servico.tempo_h || 0).toFixed(2);
+                                    calcularPrecoServico();
+                                    resultsDiv.style.display = 'none';
+                                    servicoSearchInput.blur(); // Remover foco após seleção
+                                };
+                                resultsDiv.appendChild(item);
+                            });
+                        }
+                        resultsDiv.style.display = 'block';
+                    }
+                } catch (error) {
+                    console.error('[DEBUG] Erro ao buscar serviços:', error);
+                    if (resultsDiv) {
+                        resultsDiv.innerHTML = '<div class="list-group-item text-danger">Erro ao buscar serviços</div>';
+                    }
+                }
+            }, 50);
+        });
+    }
+}
+
+// Busca de material com autocomplete (será inicializado quando o modal abrir)
+let materialSearchTimeout;
+function initMaterialSearch() {
+    const materialSearchInput = document.getElementById('material_search');
+    if (materialSearchInput && !materialSearchInput.dataset.initialized) {
+        materialSearchInput.dataset.initialized = 'true';
+        
+        // Carregar opções ao focar no campo
+        materialSearchInput.addEventListener('focus', function() {
+            if (this.value.trim().length < 2) {
+                this.dispatchEvent(new Event('input'));
+            }
+        });
+        
+        materialSearchInput.addEventListener('input', function() {
+            const query = this.value.trim();
+            const resultsDiv = document.getElementById('material_results');
+            const hiddenInput = document.getElementById('material_select');
+            
+            clearTimeout(materialSearchTimeout);
+            
+            materialSearchTimeout = setTimeout(async () => {
+                try {
+                    const searchQuery = query.length >= 2 ? query : '';
+                    const response = await fetch(`{{ url_for("materiais.api_buscar") }}?q=${encodeURIComponent(searchQuery)}`);
+                    if (!response.ok) {
+                        console.error('Erro na resposta:', response.status);
+                        return;
+                    }
+                    const materiais = await response.json();
+                    
+                    if (resultsDiv) {
+                        resultsDiv.innerHTML = '';
+                        if (!materiais || materiais.length === 0) {
+                            resultsDiv.innerHTML = '<div class="list-group-item">Nenhum material encontrado</div>';
+                        } else {
+                            materiais.forEach(material => {
+                                const item = document.createElement('button');
+                                item.type = 'button';
+                                item.className = 'list-group-item list-group-item-action';
+                                item.innerHTML = `${material.nome} - R$ ${material.preco_unit.toFixed(2)}`;
+                                item.dataset.id = material.id;
+                                item.dataset.preco = material.preco_unit;
+                                item.onmousedown = (e) => {
+                                    e.preventDefault(); // Prevenir blur do campo
+                                    isSelectingResult = true;
+                                };
+                                item.onclick = () => {
+                                    isSelectingResult = false;
+                                    materialSearchInput.value = material.nome;
+                                    if (hiddenInput) hiddenInput.value = material.id;
+                                    const precoInput = document.getElementById('material_preco');
+                                    if (precoInput) precoInput.value = material.preco_unit.toFixed(2);
+                                    resultsDiv.style.display = 'none';
+                                    materialSearchInput.blur(); // Remover foco após seleção
+                                };
+                                resultsDiv.appendChild(item);
+                            });
+                        }
+                        resultsDiv.style.display = 'block';
+                    }
+                } catch (error) {
+                    console.error('Erro ao buscar materiais:', error);
+                }
+            }, 50);
+        });
+    }
+}
+
+// Adicionar serviço
+document.getElementById('btnAddServico').addEventListener('click', function() {
+    const servicoSearch = document.getElementById('servico_search');
+    const servicoSelect = document.getElementById('servico_select');
+    if (servicoSearch) servicoSearch.value = '';
+    if (servicoSelect) servicoSelect.value = '';
+    document.getElementById('servico_tempo').value = '0';
+    document.getElementById('servico_taxa').value = '0';
+    document.getElementById('servico_qtd').value = '1';
+    document.getElementById('servico_preco').value = '0';
+    document.getElementById('servico_preco').readOnly = false;
+    initServicoSearch(); // Inicializar busca quando modal abrir
+    new bootstrap.Modal(document.getElementById('modalServico')).show();
+});
+
+function calcularPrecoServico() {
+    const tempo = parseFloat(document.getElementById('servico_tempo').value) || 0;
+    const taxa = parseFloat(document.getElementById('servico_taxa').value) || 0;
+    const precoInput = document.getElementById('servico_preco');
+    
+    if (tempo > 0 && taxa > 0) {
+        const calculado = tempo * taxa;
+        precoInput.value = calculado.toFixed(2);
+        precoInput.readOnly = true;
+    } else {
+        precoInput.readOnly = false;
+    }
+}
+
+document.getElementById('servico_tempo').addEventListener('input', calcularPrecoServico);
+document.getElementById('servico_taxa').addEventListener('input', calcularPrecoServico);
+
+// Salvar serviço
+document.getElementById('btnSalvarServico').addEventListener('click', function() {
+    const servicoId = document.getElementById('servico_select').value;
+    const servicoNome = document.getElementById('servico_search').value;
+    
+    if (!servicoId || !servicoNome) {
+        alert('Selecione um serviço!');
+        return;
+    }
+    
+    const qtd = parseInt(document.getElementById('servico_qtd').value) || 1;
+    const precoUnit = parseFloat(document.getElementById('servico_preco').value) || 0;
+    const tempo = parseFloat(document.getElementById('servico_tempo').value) || 0;
+    const taxa = parseFloat(document.getElementById('servico_taxa').value) || 0;
+    
+    const servico = {
+        id: parseInt(servicoId),
+        nome: servicoNome,
+        preco_unit: precoUnit,
+        qtd: qtd,
+        total: precoUnit * qtd,
+        tempo: tempo,
+        taxa: taxa
+    };
+    
+    servicos.push(servico);
+    atualizarListaServicos();
+    atualizarResumo();
+    bootstrap.Modal.getInstance(document.getElementById('modalServico')).hide();
+    
+    // Limpar campos
+    document.getElementById('servico_search').value = '';
+    document.getElementById('servico_select').value = '';
+});
+
+// Adicionar material
+document.getElementById('btnAddMaterial').addEventListener('click', function() {
+    const materialSearch = document.getElementById('material_search');
+    const materialSelect = document.getElementById('material_select');
+    if (materialSearch) materialSearch.value = '';
+    if (materialSelect) materialSelect.value = '';
+    document.getElementById('material_qtd').value = '1';
+    document.getElementById('material_preco').value = '0';
+    initMaterialSearch(); // Inicializar busca quando modal abrir
+    new bootstrap.Modal(document.getElementById('modalMaterial')).show();
+});
+
+// Salvar material
+document.getElementById('btnSalvarMaterial').addEventListener('click', function() {
+    const materialId = document.getElementById('material_select').value;
+    const materialNome = document.getElementById('material_search').value;
+    
+    if (!materialId || !materialNome) {
+        alert('Selecione um material!');
+        return;
+    }
+    
+    const qtd = parseInt(document.getElementById('material_qtd').value) || 1;
+    const precoUnit = parseFloat(document.getElementById('material_preco').value) || 0;
+    
+    const material = {
+        id: parseInt(materialId),
+        nome: materialNome,
+        preco_unit: precoUnit,
+        qtd: qtd,
+        total: precoUnit * qtd
+    };
+    
+    materiais.push(material);
+    atualizarListaMateriais();
+    atualizarResumo();
+    bootstrap.Modal.getInstance(document.getElementById('modalMaterial')).hide();
+    
+    // Limpar campos
+    document.getElementById('material_search').value = '';
+    document.getElementById('material_select').value = '';
+});
+
+// Atualizar valor do imposto ao selecionar
+document.getElementById('imposto_select').addEventListener('change', function() {
+    const option = this.options[this.selectedIndex];
+    if (option.value) {
+        const valor = parseFloat(option.dataset.valor) || 0;
+        document.getElementById('imposto_valor').value = valor > 0 ? valor.toFixed(2) : '';
+    } else {
+        document.getElementById('imposto_valor').value = '';
+    }
+});
+
+// Adicionais
+document.getElementById('btnAddImposto').addEventListener('click', function() {
+    const select = document.getElementById('imposto_select');
+    const impostoId = select.value;
+    const option = select.options[select.selectedIndex];
+    const valorInput = document.getElementById('imposto_valor');
+    
+    if (!impostoId) {
+        alert('Selecione um imposto!');
+        return;
+    }
+    
+    const descricao = option.dataset.descricao || option.textContent.split(' - ')[0];
+    const valor = parseFloat(valorInput.value) || 0;
+    
+    if (valor <= 0) {
+        alert('Informe um valor válido para o imposto!');
+        return;
+    }
+    
+    adicionais.push({tipo: 'imposto', descricao: descricao, valor: valor});
+    select.value = '';
+    valorInput.value = '';
+    atualizarListaAdicionais();
+    atualizarResumo();
+});
+
+// Atualizar valor do BDI ao selecionar
+document.getElementById('bdi_select').addEventListener('change', function() {
+    const option = this.options[this.selectedIndex];
+    if (option.value) {
+        const valor = parseFloat(option.dataset.valor) || 0;
+        document.getElementById('bdi_valor').value = valor > 0 ? valor.toFixed(2) : '';
+    } else {
+        document.getElementById('bdi_valor').value = '';
+    }
+});
+
+document.getElementById('btnAddBDI').addEventListener('click', function() {
+    const select = document.getElementById('bdi_select');
+    const bdiId = select.value;
+    const option = select.options[select.selectedIndex];
+    const valorInput = document.getElementById('bdi_valor');
+    
+    if (!bdiId) {
+        alert('Selecione um BDI!');
+        return;
+    }
+    
+    const descricao = option.dataset.descricao || option.textContent.split(' - ')[0];
+    const valor = parseFloat(valorInput.value) || 0;
+    
+    if (valor <= 0) {
+        alert('Informe um valor válido para o BDI!');
+        return;
+    }
+    
+    adicionais.push({tipo: 'bdi', descricao: descricao, valor: valor});
+    select.value = '';
+    valorInput.value = '';
+    atualizarListaAdicionais();
+    atualizarResumo();
+});
+
+document.getElementById('btnAddDesconto').addEventListener('click', function() {
+    const valorInput = document.getElementById('desconto_valor');
+    const valor = parseFloat(valorInput.value) || 0;
+    
+    if (valor <= 0) {
+        alert('Preencha o valor do desconto!');
+        return;
+    }
+    
+    adicionais.push({tipo: 'desconto', descricao: 'Desconto', valor: valor});
+    valorInput.value = '';
+    atualizarListaAdicionais();
+    atualizarResumo();
+});
+
+// Atualizar listas
+function atualizarListaServicos() {
+    const container = document.getElementById('servicosLista');
+    container.innerHTML = '';
+    
+    servicos.forEach((s, index) => {
+        const div = document.createElement('div');
+        div.className = 'item-row';
+        div.innerHTML = `
+            <div class="row">
+                <div class="col-md-4">${s.nome}</div>
+                <div class="col-md-2">R$ ${s.preco_unit.toFixed(2)}</div>
+                <div class="col-md-2">Qtd: ${s.qtd}</div>
+                <div class="col-md-2">Total: R$ ${s.total.toFixed(2)}</div>
+                <div class="col-md-2">
+                    <button type="button" class="btn btn-sm btn-danger" onclick="removerServico(${index})">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </div>
+            </div>
+        `;
+        container.appendChild(div);
+    });
+}
+
+function atualizarListaMateriais() {
+    const container = document.getElementById('materiaisLista');
+    container.innerHTML = '';
+    
+    materiais.forEach((m, index) => {
+        const div = document.createElement('div');
+        div.className = 'item-row';
+        div.innerHTML = `
+            <div class="row">
+                <div class="col-md-4">${m.nome}</div>
+                <div class="col-md-2">R$ ${m.preco_unit.toFixed(2)}</div>
+                <div class="col-md-2">Qtd: ${m.qtd}</div>
+                <div class="col-md-2">Total: R$ ${m.total.toFixed(2)}</div>
+                <div class="col-md-2">
+                    <button type="button" class="btn btn-sm btn-danger" onclick="removerMaterial(${index})">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </div>
+            </div>
+        `;
+        container.appendChild(div);
+    });
+}
+
+function atualizarListaAdicionais() {
+    const container = document.getElementById('adicionaisLista');
+    container.innerHTML = '';
+    
+    adicionais.forEach((a, index) => {
+        const div = document.createElement('div');
+        div.className = 'item-row';
+        div.innerHTML = `
+            <div class="row">
+                <div class="col-md-3">${a.tipo.charAt(0).toUpperCase() + a.tipo.slice(1)}</div>
+                <div class="col-md-5">${a.descricao}</div>
+                <div class="col-md-2">R$ ${a.valor.toFixed(2)}</div>
+                <div class="col-md-2">
+                    <button type="button" class="btn btn-sm btn-danger" onclick="removerAdicional(${index})">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </div>
+            </div>
+        `;
+        container.appendChild(div);
+    });
+}
+
+function removerServico(index) {
+    servicos.splice(index, 1);
+    atualizarListaServicos();
+    atualizarResumo();
+}
+
+function removerMaterial(index) {
+    materiais.splice(index, 1);
+    atualizarListaMateriais();
+    atualizarResumo();
+}
+
+function removerAdicional(index) {
+    adicionais.splice(index, 1);
+    atualizarListaAdicionais();
+    atualizarResumo();
+}
+
+// Atualizar resumo financeiro
+function atualizarResumo() {
+    const servicosTotal = servicos.reduce((sum, s) => sum + s.total, 0);
+    const materiaisTotal = materiais.reduce((sum, m) => sum + m.total, 0);
+    const deslocamentoTotal = distanceData ? distanceData.displacement_cost : 0;
+    const impostosTotal = adicionais.filter(a => a.tipo === 'imposto').reduce((sum, a) => sum + a.valor, 0);
+    const bdiTotal = adicionais.filter(a => a.tipo === 'bdi').reduce((sum, a) => sum + a.valor, 0);
+    const descontosTotal = adicionais.filter(a => a.tipo === 'desconto').reduce((sum, a) => sum + a.valor, 0);
+    
+    const totalGeral = servicosTotal + materiaisTotal + deslocamentoTotal + impostosTotal + bdiTotal - descontosTotal;
+    
+    document.getElementById('resumoFinanceiro').innerHTML = `
+        <div>(+ ) Materiais: R$ ${materiaisTotal.toFixed(2)}</div>
+        <div>(+ ) Serviços: R$ ${servicosTotal.toFixed(2)}</div>
+        <div>(+ ) Frete/Deslocamento: R$ ${deslocamentoTotal.toFixed(2)}</div>
+        <div>(+ ) Impostos: R$ ${impostosTotal.toFixed(2)}</div>
+        <div>(+ ) BDI: R$ ${bdiTotal.toFixed(2)}</div>
+        <div>(- ) Descontos: R$ ${descontosTotal.toFixed(2)}</div>
+        <div>--------------------------------</div>
+        <div><strong>Total Final: R$ ${totalGeral.toFixed(2)}</strong></div>
+    `;
+}
+
+// Forma de pagamento - mostrar parcelas
+document.getElementById('forma_pagamento_id').addEventListener('change', function() {
+    const option = this.options[this.selectedIndex];
+    const parcelasContainer = document.getElementById('parcelasContainer');
+    const parcelasInput = document.getElementById('parcelas');
+    
+    if (option.value && option.dataset.tipo === 'Parcelado') {
+        parcelasContainer.style.display = 'block';
+        parcelasInput.max = option.dataset.parcelas || 12;
+        parcelasInput.required = true; // Torna o campo obrigatório
+    } else {
+        parcelasContainer.style.display = 'none';
+        parcelasInput.required = false; // Remove a obrigatoriedade
+    }
+});
+
+// Data padrão: hoje (se não estiver editando)
+if (!document.getElementById('data_ordem').value) {
+document.getElementById('data_ordem').valueAsDate = new Date();
+}
+
+// Submeter formulário
+document.getElementById('ordemForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    if (!document.getElementById('cliente_id').value) {
+        alert('Selecione um cliente!');
+        return;
+    }
+    
+    const kmManual = parseFloat(document.getElementById('km_manual').value);
+    const enderecoOrigem = document.getElementById('endereco_origem').value;
+    const enderecoDestino = document.getElementById('endereco_destino').value;
+    
+    // Validar: precisa ter endereços OU KM manual
+    if ((!enderecoOrigem || !enderecoDestino) && (!kmManual || kmManual <= 0)) {
+        alert('Preencha os endereços ou informe os KM manualmente!');
+        return;
+    }
+    
+    // Se não tem distanceData mas tem KM manual, calcular agora
+    if (!distanceData && kmManual && kmManual > 0) {
+        const taxaKm = parseFloat(document.getElementById('taxa_km').value) || 5.0;
+        distanceData = {
+            distance_km: kmManual,
+            displacement_cost: kmManual * taxaKm
+        };
+    }
+    
+    if (servicos.length === 0 && materiais.length === 0) {
+        alert('Adicione pelo menos um serviço ou material!');
+        return;
+    }
+
+    const formaPagamentoSelect = document.getElementById('forma_pagamento_id');
+    const selectedFormaPagamentoOption = formaPagamentoSelect.options[formaPagamentoSelect.selectedIndex];
+    const parcelasInput = document.getElementById('parcelas');
+
+    if (selectedFormaPagamentoOption.dataset.tipo === 'Parcelado' && (!parcelasInput.value || parseInt(parcelasInput.value) <= 0)) {
+        alert('O número de parcelas é obrigatório para pagamento parcelado!');
+        parcelasInput.focus();
+        return;
+    }
+    
+    const data = {
+        cliente_id: parseInt(document.getElementById('cliente_id').value),
+        data: document.getElementById('data_ordem').value.split('-').reverse().join('/'),
+        endereco_origem: document.getElementById('endereco_origem').value,
+        endereco_destino: document.getElementById('endereco_destino').value,
+        servicos: servicos,
+        materiais: materiais,
+        adicionais: adicionais,
+        forma_pagamento_id: parseInt(document.getElementById('forma_pagamento_id').value),
+        parcelas: parseInt(document.getElementById('parcelas').value) || 1,
+        assinatura_id: document.getElementById('assinatura_id').value ? parseInt(document.getElementById('assinatura_id').value) : null,
+        distance_data: distanceData
+    };
+    
+    const ordemId = document.getElementById('ordem_id').value;
+    const url = ordemId ? `{{ url_for("ordens.editar", id=0) }}`.replace('0', ordemId) : '{{ url_for("ordens.nova") }}';
+    
+    try {
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(data)
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            // Fazer download do PDF imediatamente (igual ao botão do painel)
+            // A rota gerar_pdf gera o PDF na hora, então é mais rápido fazer direto
+            const pdfUrl = `{{ url_for("ordens.gerar_pdf", id=0) }}`.replace('0', result.ordem_id);
+            
+            // Abrir URL do PDF (comportamento igual ao botão do painel)
+            // A rota retorna o arquivo com as_attachment=True, fazendo download automático
+            window.open(pdfUrl, '_blank');
+            
+            // Redirecionar para o painel imediatamente (sem delay)
+            window.location.href = '{{ url_for("ordens.listar") }}';
+        } else {
+            alert('Erro: ' + result.error);
+        }
+    } catch (error) {
+        alert('Erro ao salvar ordem: ' + error.message);
+    }
+});
+
+// Inicializar
+carregarServicos();
+carregarMateriais();
+
+// Se estiver editando, inicializar listas (Requer que o backend passe esses dados como JSON)
+{% if ordem %}
+    servicos = {{ servicos_json | safe }};
+    materiais = {{ materiais_json | safe }};
+    adicionais = {{ adicionais_json | safe }};
+    
+    // Carregar dados de distância se existirem (apenas ao editar)
+    {% if ordem %}
+    // Verificar se há dados de distância salvos
+    var kmSalvo = {% if ordem.km %}{{ ordem.km|float }}{% else %}0{% endif %};
+    var deslocSalvo = {% if ordem.valor_deslocamento %}{{ ordem.valor_deslocamento|float }}{% else %}0{% endif %};
+    
+    if (kmSalvo > 0 || deslocSalvo > 0) {
+        distanceData = {
+            distance_km: kmSalvo,
+            displacement_cost: deslocSalvo
+        };
+        // Preencher campos de distância
+        if (distanceData.distance_km > 0) {
+            document.getElementById('km_manual').value = distanceData.distance_km;
+            document.getElementById('distanciaKm').textContent = distanceData.distance_km.toFixed(2);
+        }
+        if (distanceData.displacement_cost > 0) {
+            document.getElementById('valor_deslocamento').value = distanceData.displacement_cost.toFixed(2);
+        }
+        if (distanceData.distance_km > 0 || distanceData.displacement_cost > 0) {
+            document.getElementById('distanciaResultado').style.display = 'block';
+        }
+    }
+    {% endif %}
+    
+    atualizarListaServicos();
+    atualizarListaMateriais();
+    atualizarListaAdicionais();
+    atualizarResumo();
+{% endif %}
+
+}); // Fim do DOMContentLoaded
+</script>
+{% endblock %}

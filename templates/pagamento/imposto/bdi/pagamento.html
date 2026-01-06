@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+
+{% block title %}Formas de Pagamento - ERP Eletrotécnica{% endblock %}
+
+{% block content %}
+<h2 class="mb-4"><i class="bi bi-credit-card"></i> Formas de Pagamento</h2>
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Nova Forma de Pagamento</h5>
+                <form method="POST">
+                    <div class="mb-3">
+                        <label for="nome" class="form-label">Nome *</label>
+                        <input type="text" class="form-control" id="nome" name="nome" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="tipo" class="form-label">Tipo</label>
+                        <select class="form-select" id="tipo" name="tipo">
+                            <option value="Dinheiro">Dinheiro</option>
+                            <option value="PIX">PIX</option>
+                            <option value="Boleto">Boleto</option>
+                            <option value="Parcelado">Parcelado</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="parcelas_max" class="form-label">Parcelas Máximas</label>
+                        <input type="number" class="form-control" id="parcelas_max" name="parcelas_max" 
+                               value="1" min="1" max="12">
+                    </div>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-save"></i> Salvar
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Formas Cadastradas</h5>
+                <div class="table-responsive">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>Nome</th>
+                                <th>Tipo</th>
+                                <th>Parcelas Max</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for forma in formas %}
+                            <tr>
+                                <td>{{ forma.nome }}</td>
+                                <td>{{ forma.tipo }}</td>
+                                <td>{{ forma.parcelas_max }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+

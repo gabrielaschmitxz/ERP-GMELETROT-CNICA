@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+
+{% block title %}{% if servico %}Editar{% else %}Novo{% endif %} Serviço - ERP da GMEletrotécnica{% endblock %}
+
+{% block content %}
+<h2 class="mb-4">
+    <i class="bi bi-{% if servico %}pencil{% else %}plus-circle{% endif %}"></i> 
+    {% if servico %}Editar{% else %}Novo{% endif %} Serviço
+</h2>
+
+<div class="card">
+    <div class="card-body">
+        <form method="POST">
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label for="nome" class="form-label">Nome *</label>
+                    <input type="text" class="form-control" id="nome" name="nome" 
+                           value="{{ servico.nome if servico else '' }}" required>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label for="preco_unit" class="form-label">Preço Unitário (R$)</label>
+                    <input type="text" class="form-control" id="preco_unit" name="preco_unit" 
+                           value="{{ "%.2f"|format(servico.preco_unit) if servico else '0.00' }}" 
+                           placeholder="0.00">
+                </div>
+            </div>
+            <!-- Campo tempo_h mantido oculto para salvar no banco (usado nas ordens) -->
+            <input type="hidden" name="tempo_h" value="0">
+            <div class="d-flex gap-2">
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-save"></i> Salvar
+                </button>
+                <a href="{{ url_for('servicos.listar') }}" class="btn btn-secondary">
+                    <i class="bi bi-x-circle"></i> Cancelar
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

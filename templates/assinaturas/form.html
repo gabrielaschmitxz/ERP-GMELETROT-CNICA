@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+
+{% block title %}{{ 'Editar' if assinatura else 'Nova' }} Assinatura - ERP Eletrotécnica{% endblock %}
+
+{% block content %}
+<h2 class="mb-4"><i class="bi bi-pencil-square"></i> {{ 'Editar' if assinatura else 'Nova' }} Assinatura</h2>
+
+<div class="card">
+    <div class="card-body">
+        <form method="POST" action="{{ url_for('assinaturas.editar', id=assinatura[0]) if assinatura else url_for('assinaturas.nova') }}" enctype="multipart/form-data">
+            <div class="mb-3">
+                <label for="nome" class="form-label">Nome <span class="text-danger">*</span></label>
+                <input type="text" class="form-control" id="nome" name="nome" 
+                       value="{{ assinatura[1] if assinatura else '' }}" required>
+                <small class="form-text text-muted">Nome da pessoa que assinará os documentos</small>
+            </div>
+            
+            <div class="mb-3">
+                <label for="cargo" class="form-label">Cargo</label>
+                <input type="text" class="form-control" id="cargo" name="cargo" 
+                       value="{{ assinatura[2] if assinatura else 'Técnico Eletricista Industrial/Residencial' }}" 
+                       placeholder="Técnico Eletricista Industrial/Residencial">
+                <small class="form-text text-muted">Cargo que aparecerá abaixo do nome no PDF (ex: Técnico Eletricista Industrial/Residencial)</small>
+            </div>
+            
+            <div class="mb-3">
+                <label for="imagem" class="form-label">Imagem da Assinatura</label>
+                <input type="file" class="form-control" id="imagem" name="imagem" 
+                       accept="image/png,image/jpeg,image/jpg,image/gif">
+                <div class="form-text">
+                    <strong>Instruções para upload:</strong>
+                    <ul class="mb-0 mt-2">
+                        <li><strong>Formatos aceitos:</strong> PNG, JPG, JPEG, GIF</li>
+                        <li><strong>Tamanho máximo do arquivo:</strong> 16 MB</li>
+                        <li><strong>Tamanho da imagem:</strong> 800x250 pixels (recomendado)</li>
+                        <li><strong>Recomendações:</strong>
+                            <ul>
+                                <li>Use imagens com fundo transparente (PNG) para melhor resultado</li>
+                                <li>Dimensões ideais: 800 pixels de largura x 250 pixels de altura</li>
+                                <li>Certifique-se de que a assinatura esteja centralizada e legível</li>
+                                <li>A imagem será redimensionada automaticamente no PDF mantendo a proporção</li>
+                            </ul>
+                        </li>
+                    </ul>
+                </div>
+                {% if assinatura and assinatura[3] %}
+                    <div class="mt-2">
+                        <p class="mb-1"><strong>Imagem atual:</strong></p>
+                        {% if 'uploads/assinaturas/' in assinatura[3] %}
+                            <img src="{{ url_for('uploaded_file', filename=assinatura[3].replace('uploads/', '')) }}" 
+                                 alt="Assinatura atual" style="max-width: 200px; max-height: 100px; border: 1px solid #ddd; padding: 5px;" 
+                                 onerror="this.style.display='none'">
+                        {% elif assinatura[3].startswith('assinaturas/') or '/' not in assinatura[3] %}
+                            <img src="{{ url_for('assinatura_file', filename=assinatura[3].replace('assinaturas/', '') if 'assinaturas/' in assinatura[3] else assinatura[3]) }}" 
+                                 alt="Assinatura atual" style="max-width: 200px; max-height: 100px; border: 1px solid #ddd; padding: 5px;" 
+                                 onerror="this.style.display='none'">
+                        {% else %}
+                            <img src="{{ url_for('static', filename=assinatura[3]) if assinatura[3].startswith('static/') else '/' + assinatura[3] }}" 
+                                 alt="Assinatura atual" style="max-width: 200px; max-height: 100px; border: 1px solid #ddd; padding: 5px;" 
+                                 onerror="this.style.display='none'">
+                        {% endif %}
+                        <p class="text-muted small mt-1">Para alterar, selecione uma nova imagem acima</p>
+                    </div>
+                {% endif %}
+            </div>
+            
+            <div class="mb-3">
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="ativo" name="ativo" 
+                           {% if not assinatura or assinatura[4] %}checked{% endif %}>
+                    <label class="form-check-label" for="ativo">
+                        Ativa
+                    </label>
+                    <small class="form-text text-muted d-block">Assinaturas inativas não aparecerão nas opções de seleção</small>
+                </div>
+            </div>
+            
+            <div class="mb-3">
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="padrao" name="padrao" 
+                           {% if assinatura and assinatura[5] %}checked{% endif %}>
+                    <label class="form-check-label" for="padrao">
+                        Assinatura Padrão
+                    </label>
+                    <small class="form-text text-muted d-block">Esta assinatura será usada automaticamente quando nenhuma outra for selecionada</small>
+                </div>
+            </div>
+            
+            <button type="submit" class="btn btn-primary">
+                <i class="bi bi-save"></i> Salvar
+            </button>
+            <a href="{{ url_for('assinaturas.index') }}" class="btn btn-secondary">
+                <i class="bi bi-x-circle"></i> Cancelar
+            </a>
+        </form>
+    </div>
+</div>
+{% endblock %}

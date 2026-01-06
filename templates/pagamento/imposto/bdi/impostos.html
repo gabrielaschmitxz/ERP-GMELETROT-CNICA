@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+
+{% block title %}Impostos - ERP Eletrotécnica{% endblock %}
+
+{% block content %}
+<h2 class="mb-4"><i class="bi bi-receipt"></i> Impostos</h2>
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Novo Imposto</h5>
+                <form method="POST">
+                    <div class="mb-3">
+                        <label for="descricao" class="form-label">Descrição *</label>
+                        <input type="text" class="form-control" id="descricao" name="descricao" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="valor" class="form-label">Valor (R$)</label>
+                        <input type="text" class="form-control" id="valor" name="valor" 
+                               value="0.00" placeholder="0.00">
+                    </div>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-save"></i> Salvar
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Impostos Cadastrados</h5>
+                <div class="table-responsive">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>Descrição</th>
+                                <th>Valor</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for imposto in impostos %}
+                            <tr>
+                                <td>{{ imposto.descricao }}</td>
+                                <td>R$ {{ "%.2f"|format(imposto.valor) }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+

@@ -1,0 +1,456 @@
+{% extends "base.html" %}
+
+{% block title %}Gerenciar - ERP da GMEletrotécnica{% endblock %}
+
+{% block content %}
+<h2 class="mb-4"><i class="bi bi-sliders"></i> Gerenciar</h2>
+
+<ul class="nav nav-tabs mb-4" id="configTabs" role="tablist">
+    <li class="nav-item" role="presentation">
+        <button class="nav-link active" id="pagamento-tab" data-bs-toggle="tab" data-bs-target="#pagamento" type="button" role="tab" aria-controls="pagamento" aria-selected="true">
+            <i class="bi bi-credit-card"></i> Formas de Pagamento
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="impostos-tab" data-bs-toggle="tab" data-bs-target="#impostos" type="button" role="tab" aria-controls="impostos" aria-selected="false">
+            <i class="bi bi-receipt"></i> Impostos
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="bdi-tab" data-bs-toggle="tab" data-bs-target="#bdi" type="button" role="tab" aria-controls="bdi" aria-selected="false">
+            <i class="bi bi-calculator"></i> BDI
+        </button>
+    </li>
+</ul>
+
+<div class="tab-content" id="configTabsContent">
+    <!-- Tab Pagamento -->
+    <div class="tab-pane fade show active" id="pagamento" role="tabpanel" aria-labelledby="pagamento-tab">
+        <div class="row">
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">Nova Forma de Pagamento</h5>
+                        <form method="POST" action="{{ url_for('configuracoes.pagamento') }}">
+                            <div class="mb-3">
+                                <label for="nome_pagto" class="form-label">Nome *</label>
+                                <input type="text" class="form-control" id="nome_pagto" name="nome" required placeholder="Ex: PIX, Boleto, Parcelado">
+                            </div>
+                            <div class="mb-3" id="parcelas_div_novo" style="display: none;">
+                                <label for="parcelas_max" class="form-label">Qntd. de Parcelas</label>
+                                <input type="number" class="form-control" id="parcelas_max" name="parcelas_max" value="1" min="1" max="12" placeholder="Número de parcelas">
+                            </div>
+                            <button type="submit" class="btn btn-primary w-100">
+                                <i class="bi bi-save"></i> Salvar
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-8">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">Formas de Pagamento Cadastradas</h5>
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Nome</th>
+                                        <th>Qntd.</th>
+                                        <th>Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for forma in formas %}
+                                    <tr>
+                                        <td>{{ forma.nome }}</td>
+                                        <td>
+                                            {% if 'parcelado' in forma.nome|lower %}
+                                                {{ forma.parcelas_max }} parcelas
+                                            {% else %}
+                                                -
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <button type="button" class="btn btn-sm btn-primary btn-editar-forma" 
+                                                    data-id="{{ forma.id }}"
+                                                    data-nome="{{ forma.nome }}"
+                                                    data-parcelas="{{ forma.parcelas_max }}">
+                                                <i class="bi bi-pencil"></i> Editar
+                                            </button>
+                                            <form method="POST" action="{{ url_for('configuracoes.excluir_pagamento', id=forma.id) }}"
+                                                  class="d-inline" onsubmit="return confirm('Deseja realmente excluir esta forma de pagamento?');">
+                                                <button type="submit" class="btn btn-sm btn-danger">
+                                                    <i class="bi bi-trash"></i> Excluir
+                                                </button>
+                                            </form>
+                                        </td>
+                                    </tr>
+                                    {% else %}
+                                    <tr><td colspan="3" class="text-center text-muted">Nenhuma forma cadastrada.</td></tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tab Impostos -->
+    <div class="tab-pane fade" id="impostos" role="tabpanel" aria-labelledby="impostos-tab">
+        <div class="row">
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">Novo Imposto</h5>
+                        <form method="POST" action="{{ url_for('configuracoes.impostos') }}">
+                            <div class="mb-3">
+                                <label for="nome_imposto" class="form-label">Nome *</label>
+                                <input type="text" class="form-control" id="nome_imposto" name="nome" required placeholder="Ex: ISS">
+                            </div>
+                            <button type="submit" class="btn btn-primary w-100">
+                                <i class="bi bi-save"></i> Salvar
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-8">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">Impostos Cadastrados</h5>
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Nome</th>
+                                        <th>Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for imposto in impostos %}
+                                    <tr>
+                                        <td>{{ imposto.descricao }}</td>
+                                        <td>
+                                            <button type="button" class="btn btn-sm btn-primary btn-editar-imposto" 
+                                                    data-id="{{ imposto.id }}" 
+                                                    data-nome="{{ imposto.descricao }}">
+                                                <i class="bi bi-pencil"></i> Editar
+                                            </button>
+                                            <form method="POST" action="{{ url_for('configuracoes.excluir_imposto', id=imposto.id) }}"
+                                                  class="d-inline" onsubmit="return confirm('Deseja realmente excluir este imposto?');">
+                                                <button type="submit" class="btn btn-sm btn-danger">
+                                                    <i class="bi bi-trash"></i> Excluir
+                                                </button>
+                                            </form>
+                                        </td>
+                                    </tr>
+                                    {% else %}
+                                    <tr><td colspan="2" class="text-center text-muted">Nenhum imposto cadastrado.</td></tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tab BDI -->
+    <div class="tab-pane fade" id="bdi" role="tabpanel" aria-labelledby="bdi-tab">
+        <div class="row">
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">Novo BDI</h5>
+                        <form method="POST" action="{{ url_for('configuracoes.bdi') }}">
+                            <div class="mb-3">
+                                <label for="descricao_bdi" class="form-label">Nome *</label>
+                                <input type="text" class="form-control" id="descricao_bdi" name="descricao" required placeholder="Ex: Lucro">
+                            </div>
+                            <button type="submit" class="btn btn-primary w-100">
+                                <i class="bi bi-save"></i> Salvar
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-8">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">BDI Cadastrados</h5>
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Nome</th>
+                                        <th>Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for item in bdi_itens %}
+                                    <tr>
+                                        <td>{{ item.descricao }}</td>
+                                        <td>
+                                            <button type="button" class="btn btn-sm btn-primary btn-editar-bdi" 
+                                                    data-id="{{ item.id }}" 
+                                                    data-nome="{{ item.descricao }}">
+                                                <i class="bi bi-pencil"></i> Editar
+                                            </button>
+                                            <form method="POST" action="{{ url_for('configuracoes.excluir_bdi', id=item.id) }}" 
+                                                  class="d-inline" onsubmit="return confirm('Deseja realmente excluir este BDI?');">
+                                                <button type="submit" class="btn btn-sm btn-danger">
+                                                    <i class="bi bi-trash"></i> Excluir
+                                                </button>
+                                            </form>
+                                        </td>
+                                    </tr>
+                                    {% else %}
+                                    <tr><td colspan="2" class="text-center text-muted">Nenhum item de BDI cadastrado.</td></tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para editar Forma de Pagamento -->
+<div class="modal fade" id="modalEditarForma" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Editar Forma de Pagamento</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" id="formEditarForma">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="nome_edit_forma" class="form-label">Nome *</label>
+                        <input type="text" class="form-control" id="nome_edit_forma" name="nome" required>
+                    </div>
+                    <div class="mb-3" id="parcelas_div_edit" style="display: none;">
+                        <label for="parcelas_edit_forma" class="form-label">Qntd. de Parcelas</label>
+                        <input type="number" class="form-control" id="parcelas_edit_forma" name="parcelas_max" value="1" min="1" max="12">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Salvar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para editar Imposto -->
+<div class="modal fade" id="modalEditarImposto" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Editar Imposto</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" id="formEditarImposto">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="nome_edit_imposto" class="form-label">Nome *</label>
+                        <input type="text" class="form-control" id="nome_edit_imposto" name="nome" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Salvar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para editar BDI -->
+<div class="modal fade" id="modalEditarBDI" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Editar BDI</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" id="formEditarBDI">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="descricao_edit_bdi" class="form-label">Nome *</label>
+                        <input type="text" class="form-control" id="descricao_edit_bdi" name="descricao" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Salvar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+{{ super() }}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Função para ativar tab
+    function activateTab(tabId) {
+        const tabElement = document.getElementById(tabId + '-tab');
+        if (tabElement) {
+            // Remover active de todas as tabs
+            document.querySelectorAll('.nav-link').forEach(link => {
+                link.classList.remove('active');
+                link.setAttribute('aria-selected', 'false');
+            });
+            document.querySelectorAll('.tab-pane').forEach(pane => {
+                pane.classList.remove('show', 'active');
+            });
+            
+            // Ativar a tab correta
+            tabElement.classList.add('active');
+            tabElement.setAttribute('aria-selected', 'true');
+            const targetPane = document.getElementById(tabId);
+            if (targetPane) {
+                targetPane.classList.add('show', 'active');
+            }
+        }
+    }
+    
+    // Ativar tab baseado no hash da URL
+    const hash = window.location.hash;
+    if (hash) {
+        const tabId = hash.substring(1); // Remove o #
+        activateTab(tabId);
+    }
+    
+    // Ativar tab baseado no cookie
+    function getCookie(name) {
+        const value = `; ${document.cookie}`;
+        const parts = value.split(`; ${name}=`);
+        if (parts.length === 2) return parts.pop().split(';').shift();
+    }
+    const activeTab = getCookie('active_tab');
+    if (activeTab) {
+        activateTab(activeTab);
+        // Remover cookie após usar
+        document.cookie = 'active_tab=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+    }
+    // --- Lógica para Formas de Pagamento ---
+
+    // Função para alternar o campo de parcelas (para nova forma)
+    function toggleParcelasNovo(nomePagtoInput, parcelasDivNovo) {
+        if (nomePagtoInput && nomePagtoInput.value && nomePagtoInput.value.toLowerCase().includes('parcelado')) {
+            parcelasDivNovo.style.display = 'block';
+        } else {
+            parcelasDivNovo.style.display = 'none';
+        }
+    }
+
+    var nomePagtoInput = document.getElementById('nome_pagto');
+    var parcelasDivNovo = document.getElementById('parcelas_div_novo');
+
+    if (nomePagtoInput && parcelasDivNovo) {
+        nomePagtoInput.addEventListener('input', function() {
+            toggleParcelasNovo(nomePagtoInput, parcelasDivNovo);
+        });
+        // Executar na carga inicial da página
+        toggleParcelasNovo(nomePagtoInput, parcelasDivNovo); 
+    }
+
+    // Função para alternar o campo de parcelas (para edição via modal)
+    function toggleParcelasEdit(nomeEditFormaInput, parcelasDivEdit) {
+        if (nomeEditFormaInput && nomeEditFormaInput.value && nomeEditFormaInput.value.toLowerCase().includes('parcelado')) {
+            parcelasDivEdit.style.display = 'block';
+        } else {
+            parcelasDivEdit.style.display = 'none';
+        }
+    }
+
+    document.querySelectorAll('.btn-editar-forma').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            var id = this.getAttribute('data-id');
+            var nome = this.getAttribute('data-nome');
+            var parcelas = this.getAttribute('data-parcelas') || '1';
+
+            var nomeEditFormaInput = document.getElementById('nome_edit_forma');
+            var parcelasEditFormaInput = document.getElementById('parcelas_edit_forma');
+            var parcelasDivEdit = document.getElementById('parcelas_div_edit');
+            var modalEditarFormaElement = document.getElementById('modalEditarForma');
+
+            if (nomeEditFormaInput && parcelasEditFormaInput && parcelasDivEdit && modalEditarFormaElement) {
+                nomeEditFormaInput.value = nome;
+                parcelasEditFormaInput.value = parcelas;
+                
+                var baseUrl = '{{ url_for("configuracoes.editar_pagamento", id=999) }}';
+                document.getElementById('formEditarForma').action = baseUrl.replace('999', id);
+                
+                // Anexar o listener de input uma única vez ao elemento
+                // e chamar a função toggleParcelasEdit com os elementos corretos
+                // removeEventListener é importante para evitar múltiplos listeners em reaberturas do modal
+                nomeEditFormaInput.removeEventListener('input', function() { toggleParcelasEdit(nomeEditFormaInput, parcelasDivEdit); }); 
+                nomeEditFormaInput.addEventListener('input', function() {
+                    toggleParcelasEdit(nomeEditFormaInput, parcelasDivEdit);
+                });
+
+                // Anexar o listener para 'shown.bs.modal' para garantir que a lógica rode na abertura
+                // removeEventListener é importante para evitar múltiplos listeners em reaberturas do modal
+                modalEditarFormaElement.removeEventListener('shown.bs.modal', function() { toggleParcelasEdit(nomeEditFormaInput, parcelasDivEdit); });
+                modalEditarFormaElement.addEventListener('shown.bs.modal', function() {
+                    toggleParcelasEdit(nomeEditFormaInput, parcelasDivEdit);
+                });
+                
+                // Chamar a função imediatamente após popular os campos para refletir o estado inicial
+                toggleParcelasEdit(nomeEditFormaInput, parcelasDivEdit);
+            }
+            new bootstrap.Modal(modalEditarFormaElement).show();
+        });
+    });
+    
+    // --- Lógica para Impostos ---
+    document.querySelectorAll('.btn-editar-imposto').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            var id = this.getAttribute('data-id');
+            var nome = this.getAttribute('data-nome');
+            var nomeInput = document.getElementById('nome_edit_imposto');
+            var form = document.getElementById('formEditarImposto');
+            var modal = document.getElementById('modalEditarImposto');
+            
+            if (nomeInput && form && modal) {
+                nomeInput.value = nome || '';
+                var baseUrl = '{{ url_for("configuracoes.editar_imposto", id=999) }}';
+                form.action = baseUrl.replace('999', id);
+                new bootstrap.Modal(modal).show();
+            }
+        });
+    });
+    
+    // --- Lógica para BDI ---
+    document.querySelectorAll('.btn-editar-bdi').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            var id = this.getAttribute('data-id');
+            var nome = this.getAttribute('data-nome');
+            var nomeInput = document.getElementById('descricao_edit_bdi');
+            var form = document.getElementById('formEditarBDI');
+            var modal = document.getElementById('modalEditarBDI');
+            
+            if (nomeInput && form && modal) {
+                nomeInput.value = nome || '';
+                var baseUrl = '{{ url_for("configuracoes.editar_bdi", id=999) }}';
+                form.action = baseUrl.replace('999', id);
+                new bootstrap.Modal(modal).show();
+            }
+        });
+    });
+});
+</script>
+{% endblock %}

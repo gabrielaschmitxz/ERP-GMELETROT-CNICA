@@ -1,0 +1,177 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - ERP Eletrotécnica{% endblock %}
+
+{% block content %}
+<h2 class="mb-4"><i class="bi bi-speedometer2"></i> Dashboard</h2>
+
+<div class="row g-4">
+    <div class="col-md-4">
+        <div class="card text-center">
+            <div class="card-body">
+                <h5 class="card-title"><i class="bi bi-people text-primary"></i> Clientes</h5>
+                <h2 class="text-primary">{{ stats.clientes }}</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card text-center">
+            <div class="card-body">
+                <h5 class="card-title"><i class="bi bi-file-earmark-text text-success"></i> Ordens de Serviço</h5>
+                <h2 class="text-success">{{ stats.ordens_servico }}</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card text-center">
+            <div class="card-body">
+                <h5 class="card-title"><i class="bi bi-currency-dollar text-info"></i> Total Faturado</h5>
+                <h2 class="text-info">R$ {{ "%.2f"|format(stats.total_faturado) }}</h2>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="card text-center">
+            <div class="card-body">
+                <h5 class="card-title"><i class="bi bi-truck text-success"></i> Total Frete/Deslocamento</h5>
+                <h2 class="text-success">R$ {{ "%.2f"|format(stats.total_frete_deslocamento) }}</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card text-center">
+            <div class="card-body">
+                <h5 class="card-title"><i class="bi bi-cash-coin text-warning"></i> Pagamentos em Aberto</h5>
+                <h2 class="text-warning">R$ {{ "%.2f"|format(stats.pagamentos_em_aberto) }}</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card text-center">
+            <div class="card-body">
+                <h5 class="card-title"><i class="bi bi-receipt text-success"></i> Ticket Médio por O.S</h5>
+                <h2 class="text-success">R$ {{ "%.2f"|format(stats.ticket_medio) }}</h2>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Bem-vindo ao Sistema ERP da GMEletrotécnica</h5>
+                <p class="card-text">
+                    Use o menu lateral para navegar pelas funcionalidades do sistema.
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4 justify-content-center">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title"><i class="bi bi-bar-chart-line"></i> Status de Operação</h5>
+                <div style="position: relative; height:40vh; width:100%">
+                    <canvas id="statusChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+{{ super() }}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0/dist/chartjs-plugin-datalabels.min.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        var statusCounts = {{ stats.status_counts | tojson }};
+        console.log("[DEBUG - Chart] statusCounts recebido:", statusCounts);
+
+        var labels = Object.keys(statusCounts);
+        var data = Object.values(statusCounts);
+        console.log("[DEBUG - Chart] Labels do gráfico:", labels);
+        console.log("[DEBUG - Chart] Dados do gráfico:", data);
+
+        if (labels.length === 0) {
+            var ctx = document.getElementById('statusChart').getContext('2d');
+            ctx.font = '16px Arial';
+            ctx.fillStyle = '#888';
+            ctx.textAlign = 'center';
+            ctx.fillText('Nenhum dado de status para exibir', ctx.canvas.width / 2, ctx.canvas.height / 2);
+            return; // Sai da função se não houver dados
+        }
+
+        // Cores neutras em tom azul
+        var bluePalette = [
+            'rgba(173, 216, 230, 0.8)', // Azul Claro Neutro
+            'rgba(100, 149, 237, 0.8)', // Azul Médio Neutro
+            'rgba(70, 130, 180, 0.8)',  // Azul Mais Escuro Neutro (SteelBlue)
+            'rgba(46, 90, 130, 0.8)',   // Azul Escuro Forte
+            'rgba(128, 140, 153, 0.8)', // Cinza Azulado Neutro (para outros)
+            'rgba(95, 158, 160, 0.8)'   // Azul Esverdeado Neutro
+        ];
+
+        var backgroundColors = labels.map((label, index) => {
+            return bluePalette[index % bluePalette.length];
+        });
+        
+        var borderColors = backgroundColors.map(color => color.replace('0.8', '1')); // Borda mais sólida
+
+        var ctx = document.getElementById('statusChart').getContext('2d');
+        var statusChart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    // label: 'Número de Ordens de Serviço', // Removido conforme solicitado
+                    data: data,
+                    backgroundColor: backgroundColors,
+                    borderColor: borderColors,
+                    borderWidth: 1,
+                    barPercentage: 0.6, // Barras mais finas
+                    categoryPercentage: 0.7 // Espaçamento entre categorias
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false // Oculta a legenda completamente, incluindo o label do dataset
+                    },
+                    datalabels: {
+                        anchor: 'end',
+                        align: 'top',
+                        formatter: (value) => value, // Exibe o valor exato
+                        color: '#000', // Cor do texto
+                        font: {
+                            weight: 'bold'
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            precision: 0 // Garante números inteiros no eixo Y
+                        }
+                    },
+                    x: {
+                        grid: {
+                            display: false // Oculta as linhas de grade no eixo X
+                        }
+                    }
+                }
+            },
+            plugins: [ChartDataLabels] // Registrar o plugin
+        });
+    });
+</script>
+{% endblock %}

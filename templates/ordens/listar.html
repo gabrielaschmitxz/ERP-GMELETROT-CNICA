@@ -1,0 +1,136 @@
+{% extends "base.html" %}
+
+{% block title %}Painel de Atendimento - ERP Eletrotécnica{% endblock %}
+
+{% block content %}
+<h2 class="mb-4"><i class="bi bi-file-earmark-text"></i> Painel de Atendimento</h2>
+
+<div class="card">
+    <div class="card-body">
+        <div class="row mb-3">
+            <div class="col-md-6">
+                <form method="GET" class="d-flex gap-2">
+                    <select name="cliente_id" class="form-select">
+                        <option value="">Todos os clientes</option>
+                        {% for cliente in clientes %}
+                        <option value="{{ cliente.id }}" {% if cliente_id == cliente.id %}selected{% endif %}>
+                            {{ cliente.nome }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                    <select name="status" class="form-select">
+                        <option value="">Todos os status</option>
+                        <option value="Nova" {% if status == 'Nova' %}selected{% endif %}>Nova</option>
+                        <option value="Em Andamento" {% if status == 'Em Andamento' %}selected{% endif %}>Em Andamento</option>
+                        <option value="Aguardando Pagamento" {% if status == 'Aguardando Pagamento' %}selected{% endif %}>Aguardando Pagamento</option>
+                        <option value="Paga" {% if status == 'Paga' %}selected{% endif %}>Paga</option>
+                        <option value="Cancelada" {% if status == 'Cancelada' %}selected{% endif %}>Cancelada</option>
+                    </select>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-funnel"></i> Filtrar
+                    </button>
+                </form>
+            </div>
+            <div class="col-md-6 text-end">
+                <a href="{{ url_for('ordens.nova') }}" class="btn btn-success">
+                    <i class="bi bi-plus-circle"></i> Nova Ordem
+                </a>
+            </div>
+        </div>
+
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Cliente</th>
+                        <th>Data</th>
+                        <th>Pagamento</th>
+                        <th>Total</th>
+                        <th>Status</th>
+                        <th>Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for ordem in ordens %}
+                    <tr>
+                        <td>{{ ordem.id }}</td>
+                        <td>{{ ordem.cliente_nome or '-' }}</td>
+                        <td>{{ ordem.data.strftime('%d/%m/%Y') if ordem.data else '-' }}</td>
+                        <td>
+                            {% if ordem.forma_pagamento_nome %}
+                                {{ ordem.forma_pagamento_nome }}
+                                {% if ordem.parcelas and ordem.parcelas > 1 %}
+                                    <span class="badge bg-secondary">{{ ordem.parcelas }}x</span>
+                                {% endif %}
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+                        <td>R$ {{ "%.2f"|format(ordem.total) }}</td>
+                        <td>
+                            <span class="badge bg-{% if ordem.status == 'Paga' %}success{% elif ordem.status == 'Cancelada' %}danger{% else %}warning{% endif %}">
+                                {{ ordem.status }}
+                            </span>
+                        </td>
+                        <td>
+                            <div class="d-flex gap-1 flex-wrap">
+                                <a href="{{ url_for('ordens.gerar_pdf', id=ordem.id) }}" 
+                                   class="btn btn-sm btn-info" title="Gerar PDF">
+                                    <i class="bi bi-file-pdf"></i> PDF
+                                </a>
+                                <button type="button" class="btn btn-sm btn-secondary" 
+                                        data-bs-toggle="modal" data-bs-target="#statusModal{{ ordem.id }}"
+                                        title="Alterar Status">
+                                    <i class="bi bi-arrow-repeat"></i> Status
+                                </button>
+                                <a href="{{ url_for('ordens.editar', id=ordem.id) }}" 
+                                   class="btn btn-sm btn-primary" title="Editar">
+                                    <i class="bi bi-pencil"></i> Editar
+                                </a>
+                                <form action="{{ url_for('ordens.excluir', id=ordem.id) }}" method="POST" class="d-inline" onsubmit="return confirm('Tem certeza que deseja excluir esta ordem de serviço?');">
+                                    <button type="submit" class="btn btn-sm btn-danger" title="Excluir">
+                                        <i class="bi bi-trash"></i> Excluir
+                                    </button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                    
+                    <!-- Modal para alterar status -->
+                    <div class="modal fade" id="statusModal{{ ordem.id }}" tabindex="-1">
+                        <div class="modal-dialog">
+                            <div class="modal-content">
+                                <form method="POST" action="{{ url_for('ordens.alterar_status', id=ordem.id) }}">
+                                    <div class="modal-header">
+                                        <h5 class="modal-title">Alterar Status - OS #{{ ordem.id }}</h5>
+                                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                    </div>
+                                    <div class="modal-body">
+                                        <select name="status" class="form-select" required>
+                                            <option value="Nova" {% if ordem.status == 'Nova' %}selected{% endif %}>Nova</option>
+                                            <option value="Em Andamento" {% if ordem.status == 'Em Andamento' %}selected{% endif %}>Em Andamento</option>
+                                            <option value="Aguardando Pagamento" {% if ordem.status == 'Aguardando Pagamento' %}selected{% endif %}>Aguardando Pagamento</option>
+                                            <option value="Paga" {% if ordem.status == 'Paga' %}selected{% endif %}>Paga</option>
+                                            <option value="Cancelada" {% if ordem.status == 'Cancelada' %}selected{% endif %}>Cancelada</option>
+                                        </select>
+                                    </div>
+                                    <div class="modal-footer">
+                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                                        <button type="submit" class="btn btn-primary">Salvar</button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                    {% else %}
+                    <tr>
+                        <td colspan="7" class="text-center">Nenhuma ordem encontrada</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+
+{% block title %}Painel Financeiro - ERP Eletrotécnica{% endblock %}
+
+{% block content %}
+<h2 class="mb-4"><i class="bi bi-graph-up"></i> Painel Financeiro</h2>
+
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card text-center">
+            <div class="card-body">
+                <h5 class="card-title">Total de OS</h5>
+                <h3 class="text-primary">{{ stats.total_os or 0 }}</h3>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-center">
+            <div class="card-body">
+                <h5 class="card-title">Valor Total</h5>
+                <h3 class="text-success">R$ {{ "%.2f"|format(stats.total_valor or 0) }}</h3>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-center">
+            <div class="card-body">
+                <h5 class="card-title">Valor Pago</h5>
+                <h3 class="text-info">R$ {{ "%.2f"|format(stats.valor_pago or 0) }}</h3>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-center">
+            <div class="card-body">
+                <h5 class="card-title">Valor Pendente</h5>
+                <h3 class="text-warning">R$ {{ "%.2f"|format(stats.valor_pendente or 0) }}</h3>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <div class="row mb-3">
+            <div class="col-md-12">
+                <form method="GET" class="d-flex gap-2">
+                    <select name="periodo" class="form-select" style="max-width: 200px;">
+                        <option value="7" {% if periodo == '7' %}selected{% endif %}>Últimos 7 dias</option>
+                        <option value="30" {% if periodo == '30' %}selected{% endif %}>Últimos 30 dias</option>
+                        <option value="90" {% if periodo == '90' %}selected{% endif %}>Últimos 90 dias</option>
+                        <option value="ano" {% if periodo == 'ano' %}selected{% endif %}>Este ano</option>
+                        <option value="todos" {% if periodo == 'todos' %}selected{% endif %}>Todos</option>
+                    </select>
+                    <select name="cliente_id" class="form-select">
+                        <option value="">Todos os clientes</option>
+                        {% for cliente in clientes %}
+                        <option value="{{ cliente.id }}" {% if cliente_id == cliente.id %}selected{% endif %}>
+                            {{ cliente.nome }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-funnel"></i> Filtrar
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Cliente</th>
+                        <th>Data</th>
+                        <th>Forma Pagamento</th>
+                        <th>Total</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for ordem in ordens %}
+                    <tr>
+                        <td>{{ ordem.id }}</td>
+                        <td>{{ ordem.cliente_nome or '-' }}</td>
+                        <td>{{ ordem.data.strftime('%d/%m/%Y') if ordem.data else '-' }}</td>
+                        <td>{{ ordem.forma_pagamento_nome or '-' }}</td>
+                        <td>R$ {{ "%.2f"|format(ordem.total) }}</td>
+                        <td>
+                            <span class="badge bg-{% if ordem.status == 'Paga' %}success{% elif ordem.status == 'Cancelada' %}danger{% else %}warning{% endif %}">
+                                {{ ordem.status }}
+                            </span>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="6" class="text-center">Nenhuma ordem encontrada</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+

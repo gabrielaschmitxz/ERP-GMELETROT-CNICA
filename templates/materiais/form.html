@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+
+{% block title %}{% if material %}Editar{% else %}Novo{% endif %} Material - ERP Eletrotécnica{% endblock %}
+
+{% block content %}
+<h2 class="mb-4">
+    <i class="bi bi-{% if material %}pencil{% else %}plus-circle{% endif %}"></i> 
+    {% if material %}Editar{% else %}Novo{% endif %} Material
+</h2>
+
+<div class="card">
+    <div class="card-body">
+        <form method="POST">
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label for="nome" class="form-label">Nome *</label>
+                    <input type="text" class="form-control" id="nome" name="nome" 
+                           value="{{ material.nome if material else '' }}" required>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label for="marca" class="form-label">Marca</label>
+                    <input type="text" class="form-control" id="marca" name="marca" 
+                           value="{{ material.marca if material else '' }}">
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label for="quantidade" class="form-label">Quantidade</label>
+                    <input type="number" class="form-control" id="quantidade" name="quantidade" 
+                           value="{{ material.quantidade if material else 0 }}" min="0">
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label for="preco_unit" class="form-label">Preço Unitário (R$)</label>
+                    <input type="text" class="form-control" id="preco_unit" name="preco_unit" 
+                           value="{{ "%.2f"|format(material.preco_unit) if material else '0.00' }}" 
+                           placeholder="0.00">
+                </div>
+            </div>
+            <div class="d-flex gap-2">
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-save"></i> Salvar
+                </button>
+                <a href="{{ url_for('materiais.listar') }}" class="btn btn-secondary">
+                    <i class="bi bi-x-circle"></i> Cancelar
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+

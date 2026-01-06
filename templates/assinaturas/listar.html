@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+
+{% block title %}Assinaturas - ERP Eletrotécnica{% endblock %}
+
+{% block content %}
+<h2 class="mb-4"><i class="bi bi-pencil-square"></i> Assinaturas</h2>
+
+<div class="d-flex justify-content-end mb-3">
+    <a href="{{ url_for('assinaturas.nova') }}" class="btn btn-primary">
+        <i class="bi bi-plus-circle"></i> Nova Assinatura
+    </a>
+</div>
+
+{% if assinaturas %}
+<div class="card">
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-striped table-hover">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Nome</th>
+                        <th>Cargo</th>
+                        <th>Imagem</th>
+                        <th>Status</th>
+                        <th>Padrão</th>
+                        <th>Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for assinatura in assinaturas %}
+                    <tr>
+                        <td>{{ assinatura[0] }}</td>
+                        <td>{{ assinatura[1] }}</td>
+                        <td>{{ assinatura[2] or '-' }}</td>
+                        <td>
+                            {% if assinatura[3] %}
+                                {% if 'uploads/assinaturas/' in assinatura[2] %}
+                                    <img src="{{ url_for('uploaded_file', filename=assinatura[2].replace('uploads/', '')) }}" 
+                                         alt="Assinatura" style="max-width: 100px; max-height: 50px;" 
+                                         onerror="this.style.display='none'">
+                                {% elif assinatura[2].startswith('assinaturas/') or '/' not in assinatura[2] %}
+                                    <img src="{{ url_for('assinatura_file', filename=assinatura[2].replace('assinaturas/', '') if 'assinaturas/' in assinatura[2] else assinatura[2]) }}" 
+                                         alt="Assinatura" style="max-width: 100px; max-height: 50px;" 
+                                         onerror="this.style.display='none'">
+                                {% else %}
+                                    <img src="{{ url_for('static', filename=assinatura[2]) if assinatura[2].startswith('static/') else '/' + assinatura[2] }}" 
+                                         alt="Assinatura" style="max-width: 100px; max-height: 50px;" 
+                                         onerror="this.style.display='none'">
+                                {% endif %}
+                            {% else %}
+                                <span class="text-muted">Sem imagem</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if assinatura[4] %}
+                                <span class="badge bg-success">Ativa</span>
+                            {% else %}
+                                <span class="badge bg-secondary">Inativa</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if assinatura[5] %}
+                                <span class="badge bg-primary">Padrão</span>
+                            {% else %}
+                                <form action="{{ url_for('assinaturas.definir_padrao', id=assinatura[0]) }}" method="post" style="display:inline;">
+                                    <button type="submit" class="btn btn-sm btn-outline-primary" title="Definir como padrão">
+                                        <i class="bi bi-star"></i>
+                                    </button>
+                                </form>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <a href="{{ url_for('assinaturas.editar', id=assinatura[0]) }}" class="btn btn-sm btn-warning me-2" title="Editar">
+                                <i class="bi bi-pencil"></i>
+                            </a>
+                            <form action="{{ url_for('assinaturas.toggle_ativo', id=assinatura[0]) }}" method="post" style="display:inline;">
+                                <button type="submit" class="btn btn-sm btn-{{ 'secondary' if assinatura[3] else 'success' }}" 
+                                        title="{{ 'Desativar' if assinatura[4] else 'Ativar' }}">
+                                    <i class="bi bi-{{ 'x-circle' if assinatura[4] else 'check-circle' }}"></i>
+                                </button>
+                            </form>
+                            <form action="{{ url_for('assinaturas.excluir', id=assinatura[0]) }}" method="post" style="display:inline;">
+                                <button type="submit" class="btn btn-sm btn-danger ms-2" 
+                                        onclick="return confirm('Tem certeza que deseja excluir esta assinatura?');" title="Excluir">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% else %}
+<div class="alert alert-info" role="alert">
+    Nenhuma assinatura cadastrada.
+</div>
+{% endif %}
+{% endblock %}

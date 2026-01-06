@@ -1,0 +1,155 @@
+{% extends "base.html" %}
+
+{% block title %}{% if cliente %}Editar{% else %}Novo{% endif %} Cliente - ERP Eletrotécnica{% endblock %}
+
+{% block content %}
+<h2 class="mb-4">
+    <i class="bi bi-{% if cliente %}pencil{% else %}plus-circle{% endif %}"></i> 
+    {% if cliente %}Editar{% else %}Novo{% endif %} Cliente
+</h2>
+
+<div class="card">
+    <div class="card-body">
+        <form method="POST">
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label for="nome" class="form-label">Nome/Razão Social *</label>
+                    <input type="text" class="form-control" id="nome" name="nome" 
+                           value="{{ cliente.nome if cliente else '' }}" required>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label for="cnpj_cpf" class="form-label">CNPJ/CPF</label>
+                    <input type="text" class="form-control" id="cnpj_cpf" name="cnpj_cpf" 
+                           value="{{ cliente.cnpj_cpf if cliente else '' }}" 
+                           placeholder="000.000.000-00 ou 00.000.000/0000-00" maxlength="18">
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label for="telefone" class="form-label">Telefone</label>
+                    <input type="text" class="form-control" id="telefone" name="telefone" 
+                           value="{{ cliente.telefone if cliente else '' }}" 
+                           placeholder="(00) 00000-0000" maxlength="15">
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label for="email" class="form-label">Email</label>
+                    <input type="text" class="form-control" id="email" name="email" 
+                           value="{{ cliente.email if cliente else '' }}" 
+                           placeholder="email@exemplo.com">
+                </div>
+            </div>
+            <div class="mb-3">
+                <label for="endereco" class="form-label">Endereço</label>
+                <textarea class="form-control" id="endereco" name="endereco" rows="2">{{ cliente.endereco if cliente else '' }}</textarea>
+            </div>
+            <div class="d-flex gap-2">
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-save"></i> Salvar
+                </button>
+                <a href="{{ url_for('clientes.listar') }}" class="btn btn-secondary">
+                    <i class="bi bi-x-circle"></i> Cancelar
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Máscara para CNPJ/CPF
+    const cnpjCpfInput = document.getElementById('cnpj_cpf');
+    if (cnpjCpfInput) {
+        // Função para formatar CPF
+        function formatarCPF(value) {
+            if (value.length <= 3) {
+                return value;
+            } else if (value.length <= 6) {
+                return value.replace(/^(\d{3})(\d{0,3})/, '$1.$2');
+            } else if (value.length <= 9) {
+                return value.replace(/^(\d{3})(\d{3})(\d{0,3})/, '$1.$2.$3');
+            } else {
+                return value.replace(/^(\d{3})(\d{3})(\d{3})(\d{0,2})/, '$1.$2.$3-$4');
+            }
+        }
+        
+        // Função para formatar CNPJ
+        function formatarCNPJ(value) {
+            if (value.length <= 2) {
+                return value;
+            } else if (value.length <= 5) {
+                return value.replace(/^(\d{2})(\d{0,3})/, '$1.$2');
+            } else if (value.length <= 8) {
+                return value.replace(/^(\d{2})(\d{3})(\d{0,3})/, '$1.$2.$3');
+            } else if (value.length <= 12) {
+                return value.replace(/^(\d{2})(\d{3})(\d{3})(\d{0,4})/, '$1.$2.$3/$4');
+            } else {
+                return value.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{0,2})/, '$1.$2.$3/$4-$5');
+            }
+        }
+        
+        // Aplicar máscara ao carregar se já tiver valor
+        if (cnpjCpfInput.value) {
+            let value = cnpjCpfInput.value.replace(/\D/g, '');
+            if (value.length === 11) {
+                cnpjCpfInput.value = formatarCPF(value);
+            } else if (value.length === 14) {
+                cnpjCpfInput.value = formatarCNPJ(value);
+            }
+        }
+        
+        cnpjCpfInput.addEventListener('input', function(e) {
+            let value = e.target.value.replace(/\D/g, '');
+            
+            // Se tiver 11 dígitos ou menos, aplica máscara de CPF
+            if (value.length <= 11) {
+                e.target.value = formatarCPF(value);
+            } else {
+                // Se tiver mais de 11, limita a 14 e aplica máscara de CNPJ
+                if (value.length > 14) {
+                    value = value.substring(0, 14);
+                }
+                e.target.value = formatarCNPJ(value);
+            }
+        });
+    }
+    
+    // Máscara para Telefone (começando pelo DDD)
+    const telefoneInput = document.getElementById('telefone');
+    if (telefoneInput) {
+        // Aplicar máscara ao carregar se já tiver valor
+        if (telefoneInput.value) {
+            let value = telefoneInput.value.replace(/\D/g, '');
+            if (value.length === 10) {
+                telefoneInput.value = value.replace(/^(\d{2})(\d{4})(\d{4})$/, '($1) $2-$3');
+            } else if (value.length === 11) {
+                telefoneInput.value = value.replace(/^(\d{2})(\d{5})(\d{4})$/, '($1) $2-$3');
+            }
+        }
+        
+        telefoneInput.addEventListener('input', function(e) {
+            let value = e.target.value.replace(/\D/g, '');
+            
+            // Limita a 11 dígitos (celular)
+            if (value.length > 11) {
+                value = value.substring(0, 11);
+            }
+            
+            // Aplica máscara conforme o usuário digita
+            if (value.length <= 2) {
+                e.target.value = value.length > 0 ? '(' + value : '';
+            } else if (value.length <= 6) {
+                // Telefone fixo: (XX) XXXX
+                e.target.value = value.replace(/^(\d{2})(\d{0,4})/, '($1) $2');
+            } else if (value.length <= 10) {
+                // Telefone fixo: (XX) XXXX-XXXX
+                e.target.value = value.replace(/^(\d{2})(\d{4})(\d{0,4})/, '($1) $2-$3');
+            } else {
+                // Celular: (XX) XXXXX-XXXX
+                e.target.value = value.replace(/^(\d{2})(\d{5})(\d{0,4})/, '($1) $2-$3');
+            }
+        });
+    }
+});
+</script>
+{% endblock %}
+

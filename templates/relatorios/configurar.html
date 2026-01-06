@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+
+{% block title %}Configurar Relatório - ERP Eletrotécnica{% endblock %}
+
+{% block content %}
+<h2 class="mb-4"><i class="bi bi-file-earmark-image"></i> Configurar Relatório</h2>
+
+<div class="card">
+    <div class="card-body">
+        <h5 class="card-title mb-4">Imagem de Capa do Relatório</h5>
+        
+        <form method="POST" enctype="multipart/form-data">
+            <div class="mb-3">
+                <label for="imagem" class="form-label">Imagem de Capa</label>
+                <input type="file" class="form-control" id="imagem" name="imagem" 
+                       accept="image/png,image/jpeg,image/jpg,image/gif">
+                <div class="form-text">
+                    <strong>Instruções para upload:</strong>
+                    <ul class="mb-0 mt-2">
+                        <li><strong>Formatos aceitos:</strong> PNG, JPG, JPEG, GIF</li>
+                        <li><strong>Tamanho máximo do arquivo:</strong> 16 MB</li>
+                        <li><strong>Tamanho da imagem:</strong> {% if dimensoes_logo %}Use as mesmas dimensões da imagem atual: {{ dimensoes_logo }}{% else %}Use as mesmas dimensões da imagem atual (img/logo.png) para manter a proporção correta{% endif %}</li>
+                        <li><strong>Recomendações:</strong>
+                            <ul>
+                                <li>Use imagens de alta qualidade para melhor resultado no PDF</li>
+                                <li>Mantenha as mesmas dimensões da logo padrão para garantir que a imagem se ajuste corretamente na página</li>
+                            </ul>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+            
+            {% if caminho_imagem %}
+                <div class="mb-3">
+                    <p class="mb-1"><strong>Imagem atual:</strong></p>
+                    {% if 'uploads/relatorios/' in caminho_imagem %}
+                        <img src="{{ url_for('uploaded_file', filename=caminho_imagem.replace('uploads/', '')) }}" 
+                             alt="Capa atual" style="max-width: 400px; max-height: 300px; border: 1px solid #ddd; padding: 5px;" 
+                             onerror="this.style.display='none'">
+                    {% elif caminho_imagem == 'img/logo.png' or caminho_imagem.startswith('img/') %}
+                        <img src="{{ url_for('img_file', filename='logo.png') if caminho_imagem == 'img/logo.png' else url_for('img_file', filename=caminho_imagem.replace('img/', '')) }}" 
+                             alt="Capa atual (logo padrão)" style="max-width: 400px; max-height: 300px; border: 1px solid #ddd; padding: 5px;" 
+                             onerror="this.style.display='none'">
+                        <p class="text-muted small mt-1">Usando logo padrão (img/logo.png). Para personalizar, faça upload de uma nova imagem acima.</p>
+                    {% else %}
+                        <img src="{{ url_for('static', filename=caminho_imagem) if caminho_imagem.startswith('static/') else '/' + caminho_imagem }}" 
+                             alt="Capa atual" style="max-width: 400px; max-height: 300px; border: 1px solid #ddd; padding: 5px;" 
+                             onerror="this.style.display='none'">
+                        <p class="text-muted small mt-1">Para alterar, selecione uma nova imagem acima</p>
+                    {% endif %}
+                </div>
+            {% else %}
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle"></i> Nenhuma imagem de capa configurada. O sistema usará a logo padrão (img/logo.png) nos relatórios. Faça o upload de uma imagem para personalizar.
+                </div>
+            {% endif %}
+            
+            <button type="submit" class="btn btn-primary">
+                <i class="bi bi-save"></i> Salvar Imagem de Capa
+            </button>
+            <a href="{{ url_for('dashboard') }}" class="btn btn-secondary">
+                <i class="bi bi-x-circle"></i> Cancelar
+            </a>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
