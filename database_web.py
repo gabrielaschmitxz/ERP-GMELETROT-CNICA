@@ -104,8 +104,22 @@ def init_database():
             nome VARCHAR(255) NOT NULL,
             marca VARCHAR(100),
             quantidade INTEGER DEFAULT 0,
-            preco_unit DECIMAL(10,2) DEFAULT 0.0
+            preco_unit DECIMAL(10,2) DEFAULT 0.0,
+            data DATE
         )
+    ''')
+    
+    # Migração: adicionar coluna 'data' se não existir
+    cursor.execute('''
+        DO $$ 
+        BEGIN 
+            IF NOT EXISTS (
+                SELECT 1 FROM information_schema.columns 
+                WHERE table_name = 'materiais' AND column_name = 'data'
+            ) THEN
+                ALTER TABLE materiais ADD COLUMN data DATE;
+            END IF;
+        END $$;
     ''')
     
     # Tabela de serviços
@@ -246,9 +260,23 @@ def init_database():
             qtd INTEGER DEFAULT 1,
             valor_unit DECIMAL(10,2) DEFAULT 0.0,
             valor_total DECIMAL(10,2) DEFAULT 0.0,
+            data DATE,
             FOREIGN KEY (ordem_id) REFERENCES ordens_servico (id),
             FOREIGN KEY (material_id) REFERENCES materiais (id)
         )
+    ''')
+    
+    # Migração: adicionar coluna 'data' em itens_material se não existir
+    cursor.execute('''
+        DO $$ 
+        BEGIN 
+            IF NOT EXISTS (
+                SELECT 1 FROM information_schema.columns 
+                WHERE table_name = 'itens_material' AND column_name = 'data'
+            ) THEN
+                ALTER TABLE itens_material ADD COLUMN data DATE;
+            END IF;
+        END $$;
     ''')
     
     # Tabela de adicionais (impostos, BDI, descontos)

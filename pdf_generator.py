@@ -2,7 +2,7 @@ from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 import psycopg2.extras
 from reportlab.lib.units import cm, inch
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image, KeepTogether
 from reportlab.lib import colors
 from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
 from datetime import date, datetime
@@ -60,12 +60,32 @@ class OrderPDFGenerator:
             textColor=self.dark_blue
         ))
         
+        # Estilo do título de local
+        self.styles.add(ParagraphStyle(
+            name='CustomHeading3',
+            parent=self.styles['Heading3'],
+            fontName='Helvetica-Bold',
+            fontSize=11,
+            spaceAfter=8,
+            textColor=self.dark_blue
+        ))
+        
         # Estilo do texto normal
         self.styles.add(ParagraphStyle(
             name='CustomNormal',
             parent=self.styles['Normal'],
             fontSize=10,
             spaceAfter=6
+        ))
+        
+        # Estilo para cabeçalhos de tabela (texto branco)
+        self.styles.add(ParagraphStyle(
+            name='TableHeader',
+            parent=self.styles['Normal'],
+            fontSize=9,
+            textColor=colors.white,
+            fontName='Helvetica-Bold',
+            alignment=TA_CENTER
         ))
         
     def generate_pdf(self, order_data, output_path=None):
@@ -108,9 +128,11 @@ class OrderPDFGenerator:
         story.extend(self.create_bdi_section(order_data))
         story.append(Spacer(1, 15))
 
-        # Materiais
-        story.extend(self.create_materials_section(order_data))
-        story.append(Spacer(1, 15))
+        # Materiais (só adicionar se houver materiais)
+        materials_section = self.create_materials_section(order_data)
+        if materials_section:  # Só adicionar seção e espaçamento se houver materiais
+            story.extend(materials_section)
+            story.append(Spacer(1, 15))
                 
         # Composição do Faturamento
         story.extend(self.create_billing_composition(order_data))
@@ -210,6 +232,7 @@ class OrderPDFGenerator:
                     pass  # Se não conseguir carregar, continua sem ela
         
         # Título do relatório
+        ordem_id = order_data.get('ordem_id', '')
         report_title_style = ParagraphStyle(
             name='ReportTitle',
             parent=self.styles['Heading2'],
@@ -218,7 +241,7 @@ class OrderPDFGenerator:
             alignment=TA_CENTER,
             textColor=self.dark_blue
         )
-        elements.append(Paragraph("Relatório - Ordem de Serviço", report_title_style))
+        elements.append(Paragraph(f"Relatório - Ordem de Serviço - {ordem_id}", report_title_style))
         return elements
         
     def create_client_section(self, order_data):
@@ -279,7 +302,7 @@ class OrderPDFGenerator:
                     ('INNERGRID', (0, 1), (-1, -1), 0.5, colors.grey),
                 ]))
                 
-                elements.append(client_table)
+                elements.append(KeepTogether(client_table))
         except Exception as e:
             elements.append(Paragraph(f"Erro ao carregar dados: {e}", self.styles['CustomNormal']))
             
@@ -295,47 +318,363 @@ class OrderPDFGenerator:
         elements.append(Paragraph("Serviços", title_style)) # Título da seção
         
         if order_data.get('servicos'):
-            services_data = [["Item", "Descrição do Serviço", "Quantidade", "Valor Unitário (R$)", "Valor Total (R$)"]]
+            servicos = order_data['servicos']
             
-            for i, servico in enumerate(order_data['servicos'], 1):
-                # Formatar descrição para incluir horas e taxa se existirem
-                desc_text = servico['nome']
-                if servico.get('tempo') and servico.get('taxa'):
-                    t_val = float(servico['tempo'])
-                    t_str = f"{int(t_val)}" if t_val.is_integer() else f"{t_val}"
-                    desc_text += f" - Tempo: {t_str}h x Taxa: R$ {servico['taxa']:.2f}/h"
+            # Verificar se há serviços com local ou data
+            servicos_com_local = [s for s in servicos if s.get('local')]
+            servicos_sem_local = [s for s in servicos if not s.get('local')]
+            servicos_com_data = [s for s in servicos if s.get('data')]
+            tem_data = len(servicos_com_data) > 0
+            
+            # Obter locais únicos
+            locais_unicos = list(set([s['local'] for s in servicos_com_local if s.get('local')]))
+            
+            # Se houver múltiplos locais, separar em tabelas diferentes
+            if len(locais_unicos) > 1:
+                # Definir larguras fixas para todas as tabelas (se tem_data, todas terão coluna Data)
+                if tem_data:
+                    col_widths = [0.8*cm, 4.5*cm, 1.8*cm, 1.8*cm, 1.5*cm, 2.5*cm, 2.5*cm]
+                else:
+                    col_widths = [0.8*cm, 5*cm, 2*cm, 2*cm, 3*cm, 3*cm]
                 
-                # Usar Paragraph para permitir quebra de linha se o texto for longo
-                services_data.append([
-                    str(i),
-                    Paragraph(desc_text, self.styles['CustomNormal']),
-                    str(servico['qtd']),
-                    f"R$ {servico['preco_unit']:.2f}",
-                    f"R$ {servico['total']:.2f}"
-                ])
-                total_servicos += servico['total']
+                # Agrupar serviços por local
+                for local in sorted(locais_unicos):
+                    servicos_do_local = [s for s in servicos_com_local if s.get('local') == local]
+                    total_local = sum(s['total'] for s in servicos_do_local)
+                    total_servicos += total_local
+                    
+                    # Criar tabela para este local - sempre com a mesma estrutura se tem_data
+                    if tem_data:
+                        services_data = [
+                            ["Item", 
+                             Paragraph("Descrição", self.styles['TableHeader']), 
+                             "Local", 
+                             "Data", 
+                             "Qtde", 
+                             Paragraph("Valor Unit.", self.styles['TableHeader']), 
+                             Paragraph("Valor Total (R$)", self.styles['TableHeader'])]
+                        ]
+                    else:
+                        services_data = [
+                            ["Item", 
+                             Paragraph("Descrição", self.styles['TableHeader']), 
+                             "Local", 
+                             "Qtde", 
+                             Paragraph("Valor Unit.", self.styles['TableHeader']), 
+                             Paragraph("Valor Total (R$)", self.styles['TableHeader'])]
+                        ]
+                    
+                    for i, servico in enumerate(servicos_do_local, 1):
+                        desc_text = servico['nome']
+                        if servico.get('tempo') and servico.get('taxa'):
+                            t_val = float(servico['tempo'])
+                            t_str = f"{int(t_val)}" if t_val.is_integer() else f"{t_val}"
+                            desc_text += f" - Tempo: {t_str}h x Taxa: R$ {servico['taxa']:.2f}/h"
+                        
+                        # Formatar data se existir
+                        data_formatada = ''
+                        if servico.get('data'):
+                            try:
+                                from datetime import datetime
+                                if isinstance(servico['data'], str):
+                                    data_obj = datetime.strptime(servico['data'], "%Y-%m-%d").date()
+                                else:
+                                    data_obj = servico['data']
+                                data_formatada = data_obj.strftime("%d/%m/%Y")
+                            except:
+                                data_formatada = ''
+                        
+                        if tem_data:
+                            services_data.append([
+                                str(i),
+                                Paragraph(desc_text, self.styles['CustomNormal']),
+                                servico.get('local', ''),
+                                data_formatada,
+                                str(servico['qtd']),
+                                f"R$ {servico['preco_unit']:.2f}",
+                                f"R$ {servico['total']:.2f}"
+                            ])
+                        else:
+                            services_data.append([
+                                str(i),
+                                Paragraph(desc_text, self.styles['CustomNormal']),
+                                servico.get('local', ''),
+                                str(servico['qtd']),
+                                f"R$ {servico['preco_unit']:.2f}",
+                                f"R$ {servico['total']:.2f}"
+                            ])
+                    
+                    # Linha de total do local
+                    if tem_data:
+                        services_data.append(['', '', '', '', '', 'Total', f"R$ {total_local:.2f}"])
+                        span_cols = (0, -1), (4, -1)  # Mesclar até a coluna de quantidade
+                    else:
+                        services_data.append(['', '', '', '', 'Total', f"R$ {total_local:.2f}"])
+                        span_cols = (0, -1), (3, -1)  # Mesclar até a coluna de quantidade
+                    
+                    # Ajustar larguras das colunas para acomodar os cabeçalhos completos
+                    services_table = Table(services_data, colWidths=col_widths)
+                    services_table.setStyle(TableStyle([
+                        ('BACKGROUND', (0, 0), (-1, 0), self.dark_blue),
+                        ('BACKGROUND', (0, -1), (-1, -1), colors.lightgrey),
+                        ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
+                        ('ALIGN', (len(col_widths)-2, -1), (len(col_widths)-1, -1), 'RIGHT'),
+                        ('SPAN', span_cols[0], span_cols[1]), # Mesclar células do total
+                        ('ALIGN', span_cols[0], span_cols[1], 'RIGHT'),
+                        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+                        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                        ('FONTSIZE', (0, 0), (-1, -1), 9),
+                        ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+                        ('GRID', (0, 0), (-1, -1), 1, colors.black),
+                        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                    ]))
+                    
+                    # Título do local
+                    local_title = Paragraph(f"<b>Local: {local}</b>", self.styles['CustomHeading3'])
+                    local_title.alignment = TA_CENTER
+                    elements.append(KeepTogether([
+                        local_title,
+                        Spacer(1, 0.2*cm),
+                        services_table
+                    ]))
+                    elements.append(Spacer(1, 0.5*cm))
+                
+                # Adicionar serviços sem local (se houver)
+                if servicos_sem_local:
+                    total_sem_local = sum(s['total'] for s in servicos_sem_local)
+                    total_servicos += total_sem_local
+                    
+                    # Usar a mesma estrutura das outras tabelas
+                    if tem_data:
+                        services_data = [
+                            ["Item", 
+                             Paragraph("Descrição", self.styles['TableHeader']), 
+                             "Local", 
+                             "Data", 
+                             "Qtde", 
+                             Paragraph("Valor Unit.", self.styles['TableHeader']), 
+                             Paragraph("Valor Total (R$)", self.styles['TableHeader'])]
+                        ]
+                    else:
+                        services_data = [
+                            ["Item", 
+                             Paragraph("Descrição", self.styles['TableHeader']), 
+                             "Local", 
+                             "Qtde", 
+                             Paragraph("Valor Unit.", self.styles['TableHeader']), 
+                             Paragraph("Valor Total (R$)", self.styles['TableHeader'])]
+                        ]
+                    
+                    for i, servico in enumerate(servicos_sem_local, 1):
+                        desc_text = servico['nome']
+                        if servico.get('tempo') and servico.get('taxa'):
+                            t_val = float(servico['tempo'])
+                            t_str = f"{int(t_val)}" if t_val.is_integer() else f"{t_val}"
+                            desc_text += f" - Tempo: {t_str}h x Taxa: R$ {servico['taxa']:.2f}/h"
+                        
+                        # Formatar data se existir
+                        data_formatada = ''
+                        if servico.get('data'):
+                            try:
+                                from datetime import datetime
+                                if isinstance(servico['data'], str):
+                                    data_obj = datetime.strptime(servico['data'], "%Y-%m-%d").date()
+                                else:
+                                    data_obj = servico['data']
+                                data_formatada = data_obj.strftime("%d/%m/%Y")
+                            except:
+                                data_formatada = ''
+                        
+                        if tem_data:
+                            services_data.append([
+                                str(i),
+                                Paragraph(desc_text, self.styles['CustomNormal']),
+                                '',  # Local vazio
+                                data_formatada,
+                                str(servico['qtd']),
+                                f"R$ {servico['preco_unit']:.2f}",
+                                f"R$ {servico['total']:.2f}"
+                            ])
+                        else:
+                            services_data.append([
+                                str(i),
+                                Paragraph(desc_text, self.styles['CustomNormal']),
+                                '',  # Local vazio
+                                str(servico['qtd']),
+                                f"R$ {servico['preco_unit']:.2f}",
+                                f"R$ {servico['total']:.2f}"
+                            ])
+                    
+                    # Linha de total
+                    if tem_data:
+                        services_data.append(['', '', '', '', '', 'Total', f"R$ {total_sem_local:.2f}"])
+                        span_cols = (0, -1), (4, -1)
+                    else:
+                        services_data.append(['', '', '', '', 'Total', f"R$ {total_sem_local:.2f}"])
+                        span_cols = (0, -1), (3, -1)
+                    
+                    # Usar as mesmas larguras definidas anteriormente
+                    services_table = Table(services_data, colWidths=col_widths)
+                    services_table.setStyle(TableStyle([
+                        ('BACKGROUND', (0, 0), (-1, 0), self.dark_blue),
+                        ('BACKGROUND', (0, -1), (-1, -1), colors.lightgrey),
+                        ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
+                        ('ALIGN', (len(col_widths)-2, -1), (len(col_widths)-1, -1), 'RIGHT'),
+                        ('SPAN', span_cols[0], span_cols[1]),
+                        ('ALIGN', span_cols[0], span_cols[1], 'RIGHT'),
+                        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+                        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                        ('FONTSIZE', (0, 0), (-1, -1), 9),
+                        ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+                        ('GRID', (0, 0), (-1, -1), 1, colors.black),
+                        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                    ]))
+                    
+                    elements.append(KeepTogether(services_table))
+            else:
+                # Um único local ou nenhum local - tabela única
+                tem_local = len(servicos_com_local) > 0
+                
+                # Usar a mesma estrutura das outras tabelas
+                if tem_data:
+                    col_widths = [0.8*cm, 4.5*cm, 1.8*cm, 1.8*cm, 1.5*cm, 2.5*cm, 2.5*cm]
+                else:
+                    col_widths = [0.8*cm, 5*cm, 2*cm, 2*cm, 3*cm, 3*cm]
+                
+                if tem_local:
+                    # Se houver data, adicionar coluna Data ao lado de Local
+                    if tem_data:
+                        services_data = [
+                            ["Item", 
+                             Paragraph("Descrição", self.styles['TableHeader']), 
+                             "Local", 
+                             "Data", 
+                             "Qtde", 
+                             Paragraph("Valor Unit.", self.styles['TableHeader']), 
+                             Paragraph("Valor Total (R$)", self.styles['TableHeader'])]
+                        ]
+                    else:
+                        services_data = [
+                            ["Item", 
+                             Paragraph("Descrição", self.styles['TableHeader']), 
+                             "Local", 
+                             "Qtde", 
+                             Paragraph("Valor Unit.", self.styles['TableHeader']), 
+                             Paragraph("Valor Total (R$)", self.styles['TableHeader'])]
+                        ]
+                else:
+                    # Sem local, mas usar a mesma estrutura se tem_data
+                    if tem_data:
+                        services_data = [
+                            ["Item", 
+                             Paragraph("Descrição", self.styles['TableHeader']), 
+                             "Local", 
+                             "Data", 
+                             "Qtde", 
+                             Paragraph("Valor Unit.", self.styles['TableHeader']), 
+                             Paragraph("Valor Total (R$)", self.styles['TableHeader'])]
+                        ]
+                    else:
+                        services_data = [
+                            ["Item", 
+                             Paragraph("Descrição", self.styles['TableHeader']), 
+                             "Local", 
+                             "Qtde", 
+                             Paragraph("Valor Unit.", self.styles['TableHeader']), 
+                             Paragraph("Valor Total (R$)", self.styles['TableHeader'])]
+                        ]
+                
+                for i, servico in enumerate(servicos, 1):
+                    desc_text = servico['nome']
+                    if servico.get('tempo') and servico.get('taxa'):
+                        t_val = float(servico['tempo'])
+                        t_str = f"{int(t_val)}" if t_val.is_integer() else f"{t_val}"
+                        desc_text += f" - Tempo: {t_str}h x Taxa: R$ {servico['taxa']:.2f}/h"
+                    
+                    # Formatar data se existir
+                    data_formatada = ''
+                    if servico.get('data'):
+                        try:
+                            from datetime import datetime
+                            if isinstance(servico['data'], str):
+                                data_obj = datetime.strptime(servico['data'], "%Y-%m-%d").date()
+                            else:
+                                data_obj = servico['data']
+                            data_formatada = data_obj.strftime("%d/%m/%Y")
+                        except:
+                            data_formatada = ''
+                    
+                    if tem_local:
+                        if tem_data:
+                            services_data.append([
+                                str(i),
+                                Paragraph(desc_text, self.styles['CustomNormal']),
+                                servico.get('local', ''),
+                                data_formatada,
+                                str(servico['qtd']),
+                                f"R$ {servico['preco_unit']:.2f}",
+                                f"R$ {servico['total']:.2f}"
+                            ])
+                        else:
+                            services_data.append([
+                                str(i),
+                                Paragraph(desc_text, self.styles['CustomNormal']),
+                                servico.get('local', ''),
+                                str(servico['qtd']),
+                                f"R$ {servico['preco_unit']:.2f}",
+                                f"R$ {servico['total']:.2f}"
+                            ])
+                    else:
+                        # Sem local, mas usar a mesma estrutura
+                        if tem_data:
+                            services_data.append([
+                                str(i),
+                                Paragraph(desc_text, self.styles['CustomNormal']),
+                                '',  # Local vazio
+                                data_formatada,
+                                str(servico['qtd']),
+                                f"R$ {servico['preco_unit']:.2f}",
+                                f"R$ {servico['total']:.2f}"
+                            ])
+                        else:
+                            services_data.append([
+                                str(i),
+                                Paragraph(desc_text, self.styles['CustomNormal']),
+                                '',  # Local vazio
+                                str(servico['qtd']),
+                                f"R$ {servico['preco_unit']:.2f}",
+                                f"R$ {servico['total']:.2f}"
+                            ])
+                    total_servicos += servico['total']
 
-            # Linha de total
-            services_data.append(['', '', '', 'Total de Serviços', f"R$ {total_servicos:.2f}"])
-            
-            services_table = Table(services_data, colWidths=[1*cm, 6*cm, 2.5*cm, 3.5*cm, 3.5*cm])
-            services_table.setStyle(TableStyle([
-                ('BACKGROUND', (0, 0), (-1, 0), self.dark_blue),
-                ('BACKGROUND', (0, -1), (-1, -1), colors.lightgrey),
-                ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
-                ('ALIGN', (3, -1), (4, -1), 'RIGHT'),
-                ('SPAN', (0, -1), (2, -1)), # Mesclar células do total
-                ('ALIGN', (0, -1), (2, -1), 'RIGHT'),
-                ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-                ('FONTSIZE', (0, 0), (-1, -1), 9),
-                ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
-                ('GRID', (0, 0), (-1, -1), 1, colors.black),
-                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-            ]))
-            
-            elements.append(services_table)
+                # Linha de total
+                if tem_data:
+                    services_data.append(['', '', '', '', '', 'Total', f"R$ {total_servicos:.2f}"])
+                    span_cols = (0, -1), (4, -1)
+                else:
+                    services_data.append(['', '', '', '', 'Total', f"R$ {total_servicos:.2f}"])
+                    span_cols = (0, -1), (3, -1)
+                
+                services_table = Table(services_data, colWidths=col_widths)
+                services_table.setStyle(TableStyle([
+                    ('BACKGROUND', (0, 0), (-1, 0), self.dark_blue),
+                    ('BACKGROUND', (0, -1), (-1, -1), colors.lightgrey),
+                    ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
+                    ('ALIGN', (len(col_widths)-2, -1), (len(col_widths)-1, -1), 'RIGHT'),
+                    ('SPAN', span_cols[0], span_cols[1]), # Mesclar células do total
+                    ('ALIGN', span_cols[0], span_cols[1], 'RIGHT'),
+                    ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                    ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                    ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                    ('FONTSIZE', (0, 0), (-1, -1), 9),
+                    ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+                    ('GRID', (0, 0), (-1, -1), 1, colors.black),
+                    ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                ]))
+                
+                elements.append(KeepTogether(services_table))
         else:
             elements.append(Paragraph("Nenhum serviço cadastrado.", self.styles['CustomNormal']))
             
@@ -346,47 +685,76 @@ class OrderPDFGenerator:
         elements = []
         total_materiais = 0.0
         
+        # Se não houver materiais, retornar lista vazia (não exibir a seção)
+        if not order_data.get('materiais'):
+            return elements
+        
         title_style = self.styles['CustomHeading2']
         title_style.alignment = TA_CENTER
         elements.append(Paragraph("Materiais", title_style)) # Título da seção
         
-        if order_data.get('materiais'):
-            materials_data = [["Item", "Descrição do Material", "Quantidade", "Valor Unitário (R$)", "Valor Total (R$)"]]
+        # Verificar se algum material tem data
+        tem_data = any(m.get('data') for m in order_data['materiais'])
+        
+        if tem_data:
+            materials_data = [["Item", "Descrição", "Data", "Qtde", "Valor Unit.", "Valor Total (R$)"]]
+        else:
+            materials_data = [["Item", "Descrição", "Qtde", "Valor Unit.", "Valor Total (R$)"]]
+        
+        for i, material in enumerate(order_data['materiais'], 1):
+            nome_completo = f"{material['nome']} - {material['marca']}" if material.get('marca') else material['nome']
             
-            for i, material in enumerate(order_data['materiais'], 1):
-                nome_completo = f"{material['nome']} - {material['marca']}" if material['marca'] else material['nome']
+            if tem_data:
+                data_material = material.get('data', '') or ''
                 materials_data.append([
                     str(i),
-                    nome_completo,
+                    Paragraph(nome_completo, self.styles['CustomNormal']),
+                    data_material,
                     str(material['qtd']),
                     f"R$ {material['preco_unit']:.2f}",
                     f"R$ {material['total']:.2f}"
                 ])
-                total_materiais += material['total']
+            else:
+                materials_data.append([
+                    str(i),
+                    Paragraph(nome_completo, self.styles['CustomNormal']),
+                    str(material['qtd']),
+                    f"R$ {material['preco_unit']:.2f}",
+                    f"R$ {material['total']:.2f}"
+                ])
+            total_materiais += material['total']
 
-            # Linha de total
-            materials_data.append(['', '', '', 'Total de Materiais', f"R$ {total_materiais:.2f}"])
-            
-            materials_table = Table(materials_data, colWidths=[1*cm, 6*cm, 2.5*cm, 3.5*cm, 3.5*cm])
-            materials_table.setStyle(TableStyle([
-                ('BACKGROUND', (0, 0), (-1, 0), self.dark_blue),
-                ('BACKGROUND', (0, -1), (-1, -1), colors.lightgrey),
-                ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
-                ('ALIGN', (3, -1), (4, -1), 'RIGHT'),
-                ('SPAN', (0, -1), (2, -1)), # Mesclar células do total
-                ('ALIGN', (0, -1), (2, -1), 'RIGHT'),
-                ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-                ('FONTSIZE', (0, 0), (-1, -1), 9),
-                ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
-                ('GRID', (0, 0), (-1, -1), 1, colors.black),
-                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-            ]))
-            
-            elements.append(materials_table)
+        # Linha de total
+        if tem_data:
+            materials_data.append(['', '', '', '', 'Total', f"R$ {total_materiais:.2f}"])
+            col_widths = [1*cm, 4.5*cm, 2.5*cm, 1.5*cm, 2.5*cm, 3*cm]
+            span_cols = (0, -1), (3, -1)  # Mesclar Item até Qtde
         else:
-            elements.append(Paragraph("Nenhum material cadastrado.", self.styles['CustomNormal']))
+            materials_data.append(['', '', '', 'Total', f"R$ {total_materiais:.2f}"])
+            col_widths = [1*cm, 5.5*cm, 2.5*cm, 3.5*cm, 3.5*cm]
+            span_cols = (0, -1), (2, -1)  # Mesclar Item até Qtde
+        
+        materials_table = Table(materials_data, colWidths=col_widths)
+        table_style = [
+            ('BACKGROUND', (0, 0), (-1, 0), self.dark_blue),
+            ('BACKGROUND', (0, -1), (-1, -1), colors.lightgrey),
+            ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
+            ('SPAN', span_cols[0], span_cols[1]), # Mesclar células do total
+            ('ALIGN', span_cols[0], span_cols[1], 'RIGHT'),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, -1), 9),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+            ('GRID', (0, 0), (-1, -1), 1, colors.black),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ]
+        
+        table_style.append(('ALIGN', (len(col_widths)-2, -1), (len(col_widths)-1, -1), 'RIGHT'))
+        
+        materials_table.setStyle(TableStyle(table_style))
+        
+        elements.append(KeepTogether(materials_table))
             
         return elements
         
@@ -428,7 +796,7 @@ class OrderPDFGenerator:
                 ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
                 ('GRID', (0, 0), (-1, -1), 1, colors.black)
             ]))
-            elements.append(impostos_table)
+            elements.append(KeepTogether(impostos_table))
         return elements
 
     def create_bdi_section(self, order_data):
@@ -465,7 +833,7 @@ class OrderPDFGenerator:
                 ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
                 ('GRID', (0, 0), (-1, -1), 1, colors.black)
             ]))
-            elements.append(bdi_table)
+            elements.append(KeepTogether(bdi_table))
         return elements
 
     def create_billing_composition(self, order_data):
@@ -479,7 +847,9 @@ class OrderPDFGenerator:
         # Calcular totais
         servicos_total = sum(servico['total'] for servico in order_data.get('servicos', []))
         materiais_total = sum(material['total'] for material in order_data.get('materiais', []))
-        deslocamento_total = order_data.get('distance_data', {}).get('displacement_cost', 0) if order_data.get('distance_data') else 0
+        distance_data = order_data.get('distance_data', {})
+        deslocamento_total = distance_data.get('displacement_cost', 0) if distance_data else 0
+        distance_km = distance_data.get('distance_km', 0) if distance_data else 0
         
         adicionais = order_data.get('adicionais', [])
         impostos_total = sum(a['valor'] for a in adicionais if a['tipo'] == 'imposto')
@@ -489,10 +859,15 @@ class OrderPDFGenerator:
         total_geral = (servicos_total + materiais_total + deslocamento_total + 
                        impostos_total + bdi_total - descontos_total)
         
+        # Formatar texto de deslocamento com KM
+        deslocamento_texto = "(+) Frete/Deslocamento"
+        if distance_km and distance_km > 0:
+            deslocamento_texto = f"(+) Frete/Deslocamento ({distance_km:.2f} KM)"
+        
         composition_data = [
             ["(+) Materiais", f"R$ {materiais_total:.2f}"],
             ["(+) Serviços", f"R$ {servicos_total:.2f}"],
-            ["(+) Deslocamento", f"R$ {deslocamento_total:.2f}"],            
+            [deslocamento_texto, f"R$ {deslocamento_total:.2f}"],            
             ["(-) Descontos", f"R$ {descontos_total:.2f}"],
             ["", ""],
             ["TOTAL FINAL:", f"R$ {total_geral:.2f}"]
@@ -527,7 +902,7 @@ class OrderPDFGenerator:
 
         composition_table = Table(composition_data, colWidths=[12*cm, 4*cm])
         composition_table.setStyle(TableStyle(style_commands))
-        elements.append(composition_table)
+        elements.append(KeepTogether(composition_table))
         return elements
 
     def create_payment_signature_section(self, order_data):
@@ -723,7 +1098,7 @@ class OrderPDFGenerator:
                     ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
                 ]))
                 sig_table.hAlign = 'CENTER'
-                elements.append(sig_table)
+                elements.append(KeepTogether(sig_table))
                 
             except Exception as e:
                 print(f"Erro ao carregar imagem de assinatura: {e}")
@@ -754,4 +1129,512 @@ class OrderPDFGenerator:
             # Apenas espaço para assinatura manual - sem linha, sem texto
             elements.append(Spacer(1, 30))
         
+        return elements
+    
+    def generate_relatorio_mensal_cliente(self, report_data, output_path=None):
+        """Gerar relatório mensal consolidado do cliente"""
+        cliente = report_data['cliente']
+        mes_ano = report_data['mes_ano']
+        numeros_os = report_data['numeros_os']
+        
+        # Criar nome do arquivo
+        if output_path is None:
+            pdf_dir = "pdfs"
+            if not os.path.exists(pdf_dir):
+                os.makedirs(pdf_dir)
+            nome_arquivo = f"Relatorio_Mensal_{cliente['nome'].replace(' ', '_')}_{mes_ano.replace('/', '_')}.pdf"
+            output_path = os.path.join(pdf_dir, nome_arquivo)
+        
+        # Configurar documento
+        doc = SimpleDocTemplate(
+            output_path,
+            pagesize=A4,
+            leftMargin=2.1*cm,
+            rightMargin=2.1*cm,
+            topMargin=2.1*cm,
+            bottomMargin=2.1*cm
+        )
+        story = []
+        
+        # Cabeçalho
+        story.extend(self.create_header_relatorio_mensal(cliente, mes_ano, numeros_os))
+        story.append(Spacer(1, 20))
+        
+        # Dados do cliente
+        story.extend(self.create_client_section_relatorio_mensal(cliente))
+        story.append(Spacer(1, 15))
+        
+        # Serviços (agrupados por local)
+        story.extend(self.create_services_section_relatorio_mensal(report_data))
+        story.append(Spacer(1, 15))
+        
+        # Materiais (se houver)
+        if report_data.get('materiais'):
+            story.extend(self.create_materials_section_relatorio_mensal(report_data))
+            story.append(Spacer(1, 15))
+        
+        # Frete/Deslocamento (se houver)
+        if report_data.get('fretes_deslocamentos'):
+            story.extend(self.create_frete_deslocamento_section_relatorio_mensal(report_data))
+            story.append(Spacer(1, 15))
+        
+        # Resumo financeiro
+        story.extend(self.create_resumo_financeiro_relatorio_mensal(report_data))
+        
+        # Construir PDF
+        doc.build(story)
+        return output_path
+    
+    def create_header_relatorio_mensal(self, cliente, mes_ano, numeros_os):
+        """Criar cabeçalho do relatório mensal"""
+        elements = []
+        
+        # Logo
+        logo_path = "img/logo.png"
+        if os.path.exists(logo_path):
+            try:
+                logo = Image(logo_path, width=16.8*cm, height=2.81*cm)
+                logo.hAlign = 'CENTER'
+                elements.append(logo)
+                elements.append(Spacer(1, 15))
+            except:
+                pass
+        
+        # Título
+        title_style = ParagraphStyle(
+            name='ReportTitle',
+            parent=self.styles['Heading2'],
+            fontName='Helvetica-Bold',
+            fontSize=14,
+            alignment=TA_CENTER,
+            textColor=self.dark_blue
+        )
+        elements.append(Paragraph(f"Relatório Mensal - {mes_ano}", title_style))
+        elements.append(Spacer(1, 5))
+        
+        # Subtítulo com números das OS
+        subtitle_style = ParagraphStyle(
+            name='ReportSubtitle',
+            parent=self.styles['Normal'],
+            fontSize=10,
+            alignment=TA_CENTER,
+            textColor=colors.grey
+        )
+        elements.append(Paragraph(f"Ordens de Serviço: {numeros_os}", subtitle_style))
+        
+        return elements
+    
+    def create_client_section_relatorio_mensal(self, cliente):
+        """Criar seção de dados do cliente"""
+        elements = []
+        
+        title_style = self.styles['CustomHeading2']
+        title_style.alignment = TA_LEFT
+        elements.append(Paragraph("Dados do Cliente", title_style))
+        
+        client_data = [
+            ["Nome/Razão Social:", cliente['nome']],
+            ["CNPJ/CPF:", formatar_cpf_cnpj(cliente.get('cnpj_cpf', '')) or '-'],
+            ["Endereço:", cliente.get('endereco', '') or '-'],
+            ["Telefone:", formatar_telefone(cliente.get('telefone', '')) or '-'],
+            ["E-mail:", cliente.get('email', '') or '-']
+        ]
+        
+        client_table = Table(client_data, colWidths=[6*cm, 10*cm])
+        client_table.setStyle(TableStyle([
+            ('ALIGN', (0, 0), (0, -1), 'LEFT'),
+            ('ALIGN', (1, 0), (1, -1), 'LEFT'),
+            ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
+            ('FONTNAME', (1, 0), (1, -1), 'Helvetica'),
+            ('FONTSIZE', (0, 0), (-1, -1), 10),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+            ('TOPPADDING', (0, 0), (-1, -1), 4),
+            ('BOX', (0, 0), (-1, -1), 1, colors.black),
+            ('INNERGRID', (0, 0), (-1, -1), 0.5, colors.grey),
+        ]))
+        
+        elements.append(KeepTogether(client_table))
+        return elements
+    
+    def create_services_section_relatorio_mensal(self, report_data):
+        """Criar seção de serviços agrupados por local"""
+        elements = []
+        
+        title_style = self.styles['CustomHeading2']
+        title_style.alignment = TA_LEFT
+        elements.append(Paragraph("Serviços Prestados", title_style))
+        
+        servicos = report_data.get('servicos', [])
+        if not servicos:
+            elements.append(Paragraph("Nenhum serviço encontrado.", self.styles['CustomNormal']))
+            return elements
+        
+        # Agrupar serviços por local
+        servicos_por_local = {}
+        servicos_sem_local = []
+        
+        for servico in servicos:
+            local = servico.get('local')
+            if local:
+                if local not in servicos_por_local:
+                    servicos_por_local[local] = []
+                servicos_por_local[local].append(servico)
+            else:
+                servicos_sem_local.append(servico)
+        
+        # Verificar se ALGUM serviço tem data (para garantir que todas as tabelas tenham a mesma estrutura)
+        tem_data_global = any(s.get('data') for s in servicos)
+        
+        # Definir larguras fixas para todas as tabelas
+        if tem_data_global:
+            col_widths = [0.7*cm, 4.5*cm, 1.5*cm, 1.8*cm, 1.5*cm, 2.5*cm, 2.5*cm]
+        else:
+            col_widths = [0.8*cm, 5*cm, 2*cm, 2*cm, 3*cm, 3*cm]
+        
+        # Criar tabela para cada local
+        for local in sorted(servicos_por_local.keys()):
+            servicos_local = servicos_por_local[local]
+            
+            # Título do local
+            local_title = Paragraph(f"<b>Local: {local}</b>", self.styles['CustomHeading3'])
+            local_title.alignment = TA_CENTER
+            
+            # Criar tabela - sempre com a mesma estrutura se tem_data_global
+            if tem_data_global:
+                services_data = [
+                    ["Item", Paragraph("Descrição", self.styles['TableHeader']), 
+                     "Local", "Data", "Qtde", 
+                     Paragraph("Valor Unit.", self.styles['TableHeader']), 
+                     Paragraph("Valor Total (R$)", self.styles['TableHeader'])]
+                ]
+            else:
+                services_data = [
+                    ["Item", Paragraph("Descrição", self.styles['TableHeader']), 
+                     "Local", "Qtde", 
+                     Paragraph("Valor Unit.", self.styles['TableHeader']), 
+                     Paragraph("Valor Total (R$)", self.styles['TableHeader'])]
+                ]
+            
+            total_local = 0
+            for i, servico in enumerate(servicos_local, 1):
+                total_local += servico['total']
+                
+                if tem_data_global:
+                    services_data.append([
+                        str(i),
+                        Paragraph(servico['nome'], self.styles['CustomNormal']),
+                        servico.get('local', ''),
+                        servico.get('data', ''),
+                        str(servico['qtd']),
+                        f"R$ {servico['preco_unit']:.2f}",
+                        f"R$ {servico['total']:.2f}"
+                    ])
+                else:
+                    services_data.append([
+                        str(i),
+                        Paragraph(servico['nome'], self.styles['CustomNormal']),
+                        servico.get('local', ''),
+                        str(servico['qtd']),
+                        f"R$ {servico['preco_unit']:.2f}",
+                        f"R$ {servico['total']:.2f}"
+                    ])
+            
+            # Linha de total
+            if tem_data_global:
+                services_data.append(['', '', '', '', '', 'Total', f"R$ {total_local:.2f}"])
+                span_cols = (0, -1), (4, -1)
+            else:
+                services_data.append(['', '', '', '', 'Total', f"R$ {total_local:.2f}"])
+                span_cols = (0, -1), (3, -1)
+            
+            services_table = Table(services_data, colWidths=col_widths)
+            services_table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), self.dark_blue),
+                ('BACKGROUND', (0, -1), (-1, -1), colors.lightgrey),
+                ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
+                ('ALIGN', (len(col_widths)-2, -1), (len(col_widths)-1, -1), 'RIGHT'),
+                ('SPAN', span_cols[0], span_cols[1]),
+                ('ALIGN', span_cols[0], span_cols[1], 'RIGHT'),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, -1), 9),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+                ('GRID', (0, 0), (-1, -1), 1, colors.black),
+                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ]))
+            
+            elements.append(KeepTogether([
+                local_title,
+                Spacer(1, 0.2*cm),
+                services_table
+            ]))
+            elements.append(Spacer(1, 0.5*cm))
+        
+        # Serviços sem local (se houver)
+        if servicos_sem_local:
+            # Usar a mesma estrutura das outras tabelas
+            if tem_data_global:
+                services_data = [
+                    ["Item", Paragraph("Descrição", self.styles['TableHeader']), 
+                     "Local", "Data", "Qtde", 
+                     Paragraph("Valor Unit.", self.styles['TableHeader']), 
+                     Paragraph("Valor Total (R$)", self.styles['TableHeader'])]
+                ]
+            else:
+                services_data = [
+                    ["Item", Paragraph("Descrição", self.styles['TableHeader']), 
+                     "Local", "Qtde", 
+                     Paragraph("Valor Unit.", self.styles['TableHeader']), 
+                     Paragraph("Valor Total (R$)", self.styles['TableHeader'])]
+                ]
+            
+            total_sem_local = 0
+            for i, servico in enumerate(servicos_sem_local, 1):
+                total_sem_local += servico['total']
+                
+                if tem_data_global:
+                    services_data.append([
+                        str(i),
+                        Paragraph(servico['nome'], self.styles['CustomNormal']),
+                        '',  # Local vazio
+                        servico.get('data', ''),
+                        str(servico['qtd']),
+                        f"R$ {servico['preco_unit']:.2f}",
+                        f"R$ {servico['total']:.2f}"
+                    ])
+                else:
+                    services_data.append([
+                        str(i),
+                        Paragraph(servico['nome'], self.styles['CustomNormal']),
+                        '',  # Local vazio
+                        str(servico['qtd']),
+                        f"R$ {servico['preco_unit']:.2f}",
+                        f"R$ {servico['total']:.2f}"
+                    ])
+            
+            # Linha de total
+            if tem_data_global:
+                services_data.append(['', '', '', '', '', 'Total', f"R$ {total_sem_local:.2f}"])
+                span_cols = (0, -1), (4, -1)
+            else:
+                services_data.append(['', '', '', '', 'Total', f"R$ {total_sem_local:.2f}"])
+                span_cols = (0, -1), (3, -1)
+            
+            # Usar as mesmas larguras definidas anteriormente
+            services_table = Table(services_data, colWidths=col_widths)
+            services_table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), self.dark_blue),
+                ('BACKGROUND', (0, -1), (-1, -1), colors.lightgrey),
+                ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
+                ('ALIGN', (len(col_widths)-2, -1), (len(col_widths)-1, -1), 'RIGHT'),
+                ('SPAN', span_cols[0], span_cols[1]),
+                ('ALIGN', span_cols[0], span_cols[1], 'RIGHT'),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, -1), 9),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+                ('GRID', (0, 0), (-1, -1), 1, colors.black),
+                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ]))
+            
+            elements.append(KeepTogether(services_table))
+        
+        return elements
+    
+    def create_materials_section_relatorio_mensal(self, report_data):
+        """Criar seção de materiais"""
+        elements = []
+        
+        title_style = self.styles['CustomHeading2']
+        title_style.alignment = TA_LEFT
+        elements.append(Paragraph("Materiais Utilizados", title_style))
+        
+        materiais = report_data.get('materiais', [])
+        if not materiais:
+            return elements
+        
+        # Verificar se algum material tem data
+        tem_data = any(m.get('data') for m in materiais)
+        
+        if tem_data:
+            materials_data = [
+                [Paragraph("Item", self.styles['TableHeader']), 
+                 Paragraph("Descrição", self.styles['TableHeader']), 
+                 "Data",
+                 "Qtde", 
+                 Paragraph("Valor Unit.", self.styles['TableHeader']), 
+                 Paragraph("Valor Total (R$)", self.styles['TableHeader'])]
+            ]
+        else:
+            materials_data = [
+                [Paragraph("Item", self.styles['TableHeader']), 
+                 Paragraph("Descrição", self.styles['TableHeader']), 
+                 "Qtde", 
+                 Paragraph("Valor Unit.", self.styles['TableHeader']), 
+                 Paragraph("Valor Total (R$)", self.styles['TableHeader'])]
+            ]
+        
+        total_materiais = 0
+        for i, material in enumerate(materiais, 1):
+            total_materiais += material['total']
+            nome_completo = f"{material['nome']} - {material['marca']}" if material.get('marca') else material['nome']
+            
+            if tem_data:
+                data_material = material.get('data', '') or ''
+                materials_data.append([
+                    str(i),
+                    Paragraph(nome_completo, self.styles['CustomNormal']),
+                    data_material,
+                    str(material['qtd']),
+                    f"R$ {material['preco_unit']:.2f}",
+                    f"R$ {material['total']:.2f}"
+                ])
+            else:
+                materials_data.append([
+                    str(i),
+                    Paragraph(nome_completo, self.styles['CustomNormal']),
+                    str(material['qtd']),
+                    f"R$ {material['preco_unit']:.2f}",
+                    f"R$ {material['total']:.2f}"
+                ])
+        
+        if tem_data:
+            materials_data.append(['', '', '', '', 'Total', f"R$ {total_materiais:.2f}"])
+            col_widths = [1*cm, 4.5*cm, 2.5*cm, 1.5*cm, 2.5*cm, 3*cm]
+            span_cols = (0, -1), (3, -1)  # Mesclar Item até Qtde
+        else:
+            materials_data.append(['', '', '', 'Total', f"R$ {total_materiais:.2f}"])
+            col_widths = [1*cm, 6*cm, 2.5*cm, 3.5*cm, 3.5*cm]
+            span_cols = (0, -1), (2, -1)  # Mesclar Item até Qtde
+        
+        materials_table = Table(materials_data, colWidths=col_widths)
+        table_style = [
+            ('BACKGROUND', (0, 0), (-1, 0), self.dark_blue),
+            ('BACKGROUND', (0, -1), (-1, -1), colors.lightgrey),
+            ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
+            ('SPAN', span_cols[0], span_cols[1]),
+            ('ALIGN', span_cols[0], span_cols[1], 'RIGHT'),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, -1), 9),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+            ('GRID', (0, 0), (-1, -1), 1, colors.black),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ]
+        
+        table_style.append(('ALIGN', (len(col_widths)-2, -1), (len(col_widths)-1, -1), 'RIGHT'))
+        
+        materials_table.setStyle(TableStyle(table_style))
+        
+        elements.append(KeepTogether(materials_table))
+        return elements
+    
+    def create_frete_deslocamento_section_relatorio_mensal(self, report_data):
+        """Criar seção de frete/deslocamento em formato de tabela"""
+        elements = []
+        
+        title_style = self.styles['CustomHeading2']
+        title_style.alignment = TA_LEFT
+        elements.append(Paragraph("Frete/Deslocamento", title_style))
+        
+        fretes = report_data.get('fretes_deslocamentos', [])
+        if not fretes:
+            return elements
+        
+        frete_data = [
+            ["Item", 
+             Paragraph("Data", self.styles['TableHeader']), 
+             "KM", 
+             Paragraph("Valor Total (R$)", self.styles['TableHeader'])]
+        ]
+        
+        total_frete = 0
+        for i, frete in enumerate(fretes, 1):
+            total_frete += frete['valor']
+            frete_data.append([
+                str(i),
+                frete.get('data', ''),
+                f"{frete.get('km', 0):.2f}",
+                f"R$ {frete['valor']:.2f}"
+            ])
+        
+        frete_data.append(['', '', 'Total', f"R$ {total_frete:.2f}"])
+        
+        frete_table = Table(frete_data, colWidths=[1*cm, 4*cm, 3*cm, 4*cm])
+        frete_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), self.dark_blue),
+            ('BACKGROUND', (0, -1), (-1, -1), colors.lightgrey),
+            ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
+            ('ALIGN', (2, -1), (3, -1), 'CENTER'),
+            ('SPAN', (0, -1), (1, -1)),
+            ('ALIGN', (0, -1), (1, -1), 'RIGHT'),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('ALIGN', (2, 0), (2, -2), 'CENTER'),
+            ('ALIGN', (3, 0), (3, -2), 'CENTER'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, -1), 9),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+            ('GRID', (0, 0), (-1, -1), 1, colors.black),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ]))
+        
+        elements.append(KeepTogether(frete_table))
+        return elements
+    
+    def create_resumo_financeiro_relatorio_mensal(self, report_data):
+        """Criar resumo financeiro do relatório mensal"""
+        elements = []
+        
+        title_style = self.styles['CustomHeading2']
+        title_style.alignment = TA_CENTER
+        elements.append(Paragraph("Resumo Financeiro", title_style))
+        
+        totais = report_data['totais']
+        
+        composition_data = [
+            ["(+) Serviços", f"R$ {totais['servicos']:.2f}"],
+            ["(+) Materiais", f"R$ {totais['materiais']:.2f}"],
+        ]
+        
+        if totais['deslocamento'] > 0:
+            composition_data.append(["(+) Frete/Deslocamento", f"R$ {totais['deslocamento']:.2f}"])
+        
+        if totais['impostos'] > 0:
+            composition_data.append(["(+) Impostos", f"R$ {totais['impostos']:.2f}"])
+        
+        if totais['bdi'] > 0:
+            composition_data.append(["(+) BDI", f"R$ {totais['bdi']:.2f}"])
+        
+        if totais['descontos'] > 0:
+            composition_data.append(["(-) Descontos", f"R$ {totais['descontos']:.2f}"])
+        
+        composition_data.extend([
+            ["", ""],
+            ["TOTAL GERAL:", f"R$ {totais['geral']:.2f}"]
+        ])
+        
+        composition_table = Table(composition_data, colWidths=[12*cm, 4*cm])
+        composition_table.setStyle(TableStyle([
+            ('FONTNAME', (0, 0), (0, -1), 'Helvetica'),
+            ('FONTNAME', (1, 0), (1, -1), 'Helvetica'),
+            ('FONTSIZE', (0, 0), (-1, -1), 10),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+            ('TOPPADDING', (0, 0), (-1, -1), 4),
+            ('ALIGN', (0, 0), (0, -1), 'LEFT'),
+            ('ALIGN', (1, 0), (1, -1), 'RIGHT'),
+            ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, -2), 10),
+            ('FONTSIZE', (0, -1), (-1, -1), 12),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+            ('LINEBELOW', (0, -2), (-1, -2), 1, colors.black),
+            ('LINEBELOW', (0, -1), (-1, -1), 2, colors.black),
+        ]))
+        
+        elements.append(KeepTogether(composition_table))
+        return elements
+
         return elements

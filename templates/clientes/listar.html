@@ -50,6 +50,10 @@
                                    class="btn btn-sm btn-primary">
                                     <i class="bi bi-pencil"></i> Editar
                                 </a>
+                                <a href="{{ url_for('clientes.selecionar_mes_relatorio', id=cliente.id) }}" 
+                                   class="btn btn-sm btn-info" title="Relatório Mensal">
+                                    <i class="bi bi-file-earmark-pdf"></i> Relatório Mensal
+                                </a>
                                 <form method="POST" action="{{ url_for('clientes.excluir', id=cliente.id) }}" 
                                       class="d-inline" onsubmit="return confirm('Deseja realmente excluir?');">
                                     <button type="submit" class="btn btn-sm btn-danger">

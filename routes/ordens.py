@@ -124,17 +124,68 @@ def nova():
             
             ordem_id = cursor.fetchone()[0]
             
+            # Migração automática: adicionar colunas 'local' e 'data' na tabela itens_servico se não existirem
+            cursor.execute('''
+                DO $$ 
+                BEGIN 
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns 
+                        WHERE table_name='itens_servico' AND column_name='local'
+                    ) THEN
+                        ALTER TABLE itens_servico ADD COLUMN local VARCHAR(255);
+                    END IF;
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns 
+                        WHERE table_name='itens_servico' AND column_name='data'
+                    ) THEN
+                        ALTER TABLE itens_servico ADD COLUMN data DATE;
+                    END IF;
+                END $$;
+            ''')
+            
+            # Migração automática: adicionar coluna 'data' na tabela itens_material se não existir
+            cursor.execute('''
+                DO $$ 
+                BEGIN 
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns 
+                        WHERE table_name='itens_material' AND column_name='data'
+                    ) THEN
+                        ALTER TABLE itens_material ADD COLUMN data DATE;
+                    END IF;
+                END $$;
+            ''')
+            conn.commit()
+            
             # Inserir serviços
             for servico in servicos:
                 descricao = servico.get('nome', '')
                 if servico.get('tempo') and servico.get('taxa'):
                     descricao += f" - Tempo: {servico['tempo']}h x Taxa: R$ {servico['taxa']:.2f}/h"
                 
+                # Tratar local de forma segura (pode ser None ou string vazia)
+                local = servico.get('local')
+                if local:
+                    local = str(local).strip() or None
+                else:
+                    local = None
+                
+                # Tratar data de forma segura
+                data_servico = servico.get('data')
+                if data_servico:
+                    try:
+                        if isinstance(data_servico, str):
+                            data_servico = datetime.strptime(data_servico, "%Y-%m-%d").date()
+                    except:
+                        data_servico = None
+                else:
+                    data_servico = None
+                
                 cursor.execute('''
-                    INSERT INTO itens_servico (ordem_id, servico_id, descricao, qtd, valor_unit, valor_total)
-                    VALUES (%s, %s, %s, %s, %s, %s)
+                    INSERT INTO itens_servico (ordem_id, servico_id, descricao, qtd, valor_unit, valor_total, local, data)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
                 ''', (ordem_id, servico.get('id'), descricao, servico.get('qtd', 1),
-                      servico.get('preco_unit', 0), servico.get('total', 0)))
+                      servico.get('preco_unit', 0), servico.get('total', 0), local, data_servico))
             
             # Inserir materiais
             for material in materiais:
@@ -142,11 +193,19 @@ def nova():
                 if material.get('marca'):
                     descricao += f" - {material['marca']}"
                 
+                # Converter data se fornecida
+                data_material = None
+                if material.get('data'):
+                    try:
+                        data_material = datetime.strptime(material.get('data'), '%Y-%m-%d').date()
+                    except:
+                        pass
+                
                 cursor.execute('''
-                    INSERT INTO itens_material (ordem_id, material_id, descricao, qtd, valor_unit, valor_total)
-                    VALUES (%s, %s, %s, %s, %s, %s)
+                    INSERT INTO itens_material (ordem_id, material_id, descricao, qtd, valor_unit, valor_total, data)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s)
                 ''', (ordem_id, material.get('id'), descricao, material.get('qtd', 1),
-                      material.get('preco_unit', 0), material.get('total', 0)))
+                      material.get('preco_unit', 0), material.get('total', 0), data_material))
             
             # Inserir adicionais
             for adicional in adicionais:
@@ -300,6 +359,52 @@ def editar(id):
                   distance_data.get('distance_km', 0), deslocamento_total, total_geral, 
                   forma_pagamento_id, parcelas, assinatura_id, id))
             
+            # Migração automática: adicionar coluna 'local' na tabela itens_servico se não existir
+            cursor.execute('''
+                DO $$ 
+                BEGIN 
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns 
+                        WHERE table_name='itens_servico' AND column_name='local'
+                    ) THEN
+                        ALTER TABLE itens_servico ADD COLUMN local VARCHAR(255);
+                    END IF;
+                END $$;
+            ''')
+            conn.commit()
+            
+            # Migração automática: adicionar colunas 'local' e 'data' na tabela itens_servico se não existirem
+            cursor.execute('''
+                DO $$ 
+                BEGIN 
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns 
+                        WHERE table_name = 'itens_servico' AND column_name = 'local'
+                    ) THEN
+                        ALTER TABLE itens_servico ADD COLUMN local VARCHAR(255);
+                    END IF;
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns 
+                        WHERE table_name = 'itens_servico' AND column_name = 'data'
+                    ) THEN
+                        ALTER TABLE itens_servico ADD COLUMN data DATE;
+                    END IF;
+                END $$;
+            ''')
+            
+            # Migração automática: adicionar coluna 'data' na tabela itens_material se não existir
+            cursor.execute('''
+                DO $$ 
+                BEGIN 
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns 
+                        WHERE table_name = 'itens_material' AND column_name = 'data'
+                    ) THEN
+                        ALTER TABLE itens_material ADD COLUMN data DATE;
+                    END IF;
+                END $$;
+            ''')
+            
             # Limpar itens antigos para recriar
             cursor.execute('DELETE FROM itens_servico WHERE ordem_id=%s', (id,))
             cursor.execute('DELETE FROM itens_material WHERE ordem_id=%s', (id,))
@@ -311,11 +416,29 @@ def editar(id):
                 if servico.get('tempo') and servico.get('taxa'):
                     descricao += f" - Tempo: {servico['tempo']}h x Taxa: R$ {servico['taxa']:.2f}/h"
                 
+                # Tratar local de forma segura (pode ser None ou string vazia)
+                local = servico.get('local')
+                if local:
+                    local = str(local).strip() or None
+                else:
+                    local = None
+                
+                # Tratar data de forma segura
+                data_servico = servico.get('data')
+                if data_servico:
+                    try:
+                        if isinstance(data_servico, str):
+                            data_servico = datetime.strptime(data_servico, "%Y-%m-%d").date()
+                    except:
+                        data_servico = None
+                else:
+                    data_servico = None
+                
                 cursor.execute('''
-                    INSERT INTO itens_servico (ordem_id, servico_id, descricao, qtd, valor_unit, valor_total)
-                    VALUES (%s, %s, %s, %s, %s, %s)
+                    INSERT INTO itens_servico (ordem_id, servico_id, descricao, qtd, valor_unit, valor_total, local, data)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
                 ''', (id, servico.get('id'), descricao, servico.get('qtd', 1),
-                      servico.get('preco_unit', 0), servico.get('total', 0)))
+                      servico.get('preco_unit', 0), servico.get('total', 0), local, data_servico))
             
             # Inserir materiais
             for material in materiais:
@@ -323,11 +446,19 @@ def editar(id):
                 if material.get('marca'):
                     descricao += f" - {material['marca']}"
                 
+                # Converter data se fornecida
+                data_material = None
+                if material.get('data'):
+                    try:
+                        data_material = datetime.strptime(material.get('data'), '%Y-%m-%d').date()
+                    except:
+                        pass
+                
                 cursor.execute('''
-                    INSERT INTO itens_material (ordem_id, material_id, descricao, qtd, valor_unit, valor_total)
-                    VALUES (%s, %s, %s, %s, %s, %s)
+                    INSERT INTO itens_material (ordem_id, material_id, descricao, qtd, valor_unit, valor_total, data)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s)
                 ''', (id, material.get('id'), descricao, material.get('qtd', 1),
-                      material.get('preco_unit', 0), material.get('total', 0)))
+                      material.get('preco_unit', 0), material.get('total', 0), data_material))
             
             # Inserir adicionais
             for adicional in adicionais:
@@ -376,7 +507,9 @@ def editar(id):
                 'preco_unit': float(s['valor_unit']),
                 'qtd': s['qtd'],
                 'total': float(s['valor_total']),
-                'tempo': 0, 'taxa': 0 # Simplificado
+                'tempo': 0, 'taxa': 0, # Simplificado
+                'local': s.get('local') or None,
+                'data': s.get('data').strftime('%Y-%m-%d') if s.get('data') else None
             })
             
         materiais_js = []
@@ -386,7 +519,8 @@ def editar(id):
                 'nome': m['descricao'].split(' - ')[0],
                 'preco_unit': float(m['valor_unit']),
                 'qtd': m['qtd'],
-                'total': float(m['valor_total'])
+                'total': float(m['valor_total']),
+                'data': m['data'].strftime('%Y-%m-%d') if m.get('data') else None
             })
             
         adicionais_js = []
@@ -491,11 +625,14 @@ def gerar_pdf(id):
             'cliente_id': ordem['cliente_id'],
             'data_emissao': ordem['data'].strftime("%d/%m/%Y") if ordem['data'] else datetime.now().strftime("%d/%m/%Y"),
             'servicos': [{'id': s['servico_id'], 'nome': s['descricao'], 'qtd': s['qtd'], 
-                         'preco_unit': float(s['valor_unit']), 'total': float(s['valor_total'])} 
+                         'preco_unit': float(s['valor_unit']), 'total': float(s['valor_total']),
+                         'local': s.get('local') or None,
+                         'data': s.get('data').strftime('%Y-%m-%d') if s.get('data') else None} 
                         for s in servicos],
             'materiais': [{'id': m['material_id'], 'nome': m['descricao'].split(' - ')[0] if ' - ' in m['descricao'] else m['descricao'],
                           'marca': m['descricao'].split(' - ')[1] if ' - ' in m['descricao'] and len(m['descricao'].split(' - ')) > 1 else '',
-                          'qtd': m['qtd'], 'preco_unit': float(m['valor_unit']), 'total': float(m['valor_total'])} 
+                          'qtd': m['qtd'], 'preco_unit': float(m['valor_unit']), 'total': float(m['valor_total']),
+                          'data': m.get('data').strftime('%d/%m/%Y') if m.get('data') else None} 
                          for m in materiais],
             'adicionais': [{'tipo': a['tipo'], 'descricao': a['descricao'], 'valor': float(a['valor'])} 
                           for a in adicionais],

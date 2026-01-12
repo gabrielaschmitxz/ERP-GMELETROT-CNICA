@@ -143,54 +143,10 @@ def dashboard():
         conn = get_db_connection()
         cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor) # Usar DictCursor
         
-        # Estatísticas
-        cursor.execute("SELECT COUNT(*) FROM clientes")
-        total_clientes = cursor.fetchone()[0]
-        print(f"[DEBUG] Total Clientes: {total_clientes}")
-        
-        cursor.execute("SELECT COUNT(*) FROM ordens_servico")
-        total_os = cursor.fetchone()[0]
-        print(f"[DEBUG] Total OS: {total_os}")
-        
-        cursor.execute("SELECT COALESCE(SUM(total), 0) FROM ordens_servico WHERE status = 'Paga'")
-        total_faturado = cursor.fetchone()[0] or 0
-        print(f"[DEBUG] Total Faturado: {total_faturado}")
-        
-        # Novo: Total em Frete/Deslocamento
-        # Corrigido: Usando 'valor_deslocamento' que existe na tabela 'ordens_servico'.
-        cursor.execute("SELECT COALESCE(SUM(valor_deslocamento), 0) FROM ordens_servico")
-        total_frete_deslocamento = cursor.fetchone()[0] or 0
-        print(f"[DEBUG] Total Frete/Deslocamento: {total_frete_deslocamento}")
-        
-        # Novo: Pagamentos em Aberto (agora soma o valor total, não a contagem)
-        cursor.execute("SELECT COALESCE(SUM(total), 0) FROM ordens_servico WHERE status = 'Aguardando Pagamento'")
-        pagamentos_em_aberto = cursor.fetchone()[0] or 0
-        print(f"[DEBUG] Pagamentos em Aberto: {pagamentos_em_aberto}")
-        
-        # Novo: Ticket médio por O.S
-        if total_os > 0:
-            ticket_medio = total_faturado / total_os
-        else:
-            ticket_medio = 0
-        print(f"[DEBUG] Ticket Médio: {ticket_medio}")
-        
-        # Novo: Status de Operação (contagem por status)
-        cursor.execute("SELECT status, COUNT(*) FROM ordens_servico GROUP BY status")
-        status_counts_raw = cursor.fetchall()
-        status_counts = {row[0]: row[1] for row in status_counts_raw} if status_counts_raw else {}
-        print(f"[DEBUG] Status Counts: {status_counts}")
+        # Estatísticas (sem filtro de período por padrão)
+        stats = get_dashboard_stats(cursor, None)
         
         conn.close()
-        
-        stats = {
-            'clientes': total_clientes,
-            'ordens_servico': total_os,
-            'total_faturado': float(total_faturado),
-            'total_frete_deslocamento': float(total_frete_deslocamento),
-            'pagamentos_em_aberto': float(pagamentos_em_aberto), # Converter para float
-            'ticket_medio': float(ticket_medio),
-            'status_counts': status_counts
-        }
         
         return render_template('dashboard.html', stats=stats)
         
@@ -200,6 +156,88 @@ def dashboard():
         return render_template('dashboard.html', stats={'clientes': 0, 'ordens_servico': 0, 'total_faturado': 0,
                                                           'total_frete_deslocamento': 0, 'pagamentos_em_aberto': 0,
                                                           'ticket_medio': 0, 'status_counts': {}})
+
+def get_dashboard_stats(cursor, periodo_dias=None):
+    """Função auxiliar para buscar estatísticas do dashboard com filtro opcional de período"""
+    from datetime import datetime, timedelta
+    
+    # Clientes sempre sem filtro de período
+    cursor.execute("SELECT COUNT(*) FROM clientes")
+    total_clientes = cursor.fetchone()[0]
+    
+    # Construir filtro de data se período for especificado
+    date_filter = ""
+    params = []
+    if periodo_dias:
+        if periodo_dias == 'ano_vigente':
+            # Ano vigente (ano atual)
+            date_filter = " AND data >= DATE_TRUNC('year', CURRENT_DATE)"
+        else:
+            # Dias específicos
+            try:
+                dias = int(periodo_dias)
+                data_inicio = (datetime.now() - timedelta(days=dias)).date()
+                date_filter = " AND data >= %s"
+                params = [data_inicio]
+            except:
+                pass
+    
+    # Ordens de serviço com filtro de período
+    cursor.execute(f"SELECT COUNT(*) FROM ordens_servico WHERE 1=1 {date_filter}", params)
+    total_os = cursor.fetchone()[0]
+    
+    # Total faturado com filtro de período
+    cursor.execute(f"SELECT COALESCE(SUM(total), 0) FROM ordens_servico WHERE status = 'Paga' {date_filter}", params)
+    total_faturado = cursor.fetchone()[0] or 0
+    
+    # Total em Frete/Deslocamento com filtro de período
+    cursor.execute(f"SELECT COALESCE(SUM(valor_deslocamento), 0) FROM ordens_servico WHERE 1=1 {date_filter}", params)
+    total_frete_deslocamento = cursor.fetchone()[0] or 0
+    
+    # Pagamentos em Aberto com filtro de período
+    cursor.execute(f"SELECT COALESCE(SUM(total), 0) FROM ordens_servico WHERE status = 'Aguardando Pagamento' {date_filter}", params)
+    pagamentos_em_aberto = cursor.fetchone()[0] or 0
+    
+    # Ticket médio por O.S
+    if total_os > 0:
+        ticket_medio = total_faturado / total_os
+    else:
+        ticket_medio = 0
+    
+    # Status de Operação com filtro de período
+    cursor.execute(f"SELECT status, COUNT(*) FROM ordens_servico WHERE 1=1 {date_filter} GROUP BY status", params)
+    status_counts_raw = cursor.fetchall()
+    status_counts = {row[0]: row[1] for row in status_counts_raw} if status_counts_raw else {}
+    
+    return {
+        'clientes': total_clientes,
+        'ordens_servico': total_os,
+        'total_faturado': float(total_faturado),
+        'total_frete_deslocamento': float(total_frete_deslocamento),
+        'pagamentos_em_aberto': float(pagamentos_em_aberto),
+        'ticket_medio': float(ticket_medio),
+        'status_counts': status_counts
+    }
+
+@app.route('/api/dashboard/stats')
+@login_required
+def api_dashboard_stats():
+    """API para buscar estatísticas do dashboard com filtro de período"""
+    try:
+        periodo = request.args.get('periodo', None)
+        
+        conn = get_db_connection()
+        cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+        
+        stats = get_dashboard_stats(cursor, periodo)
+        
+        conn.close()
+        
+        return jsonify(stats)
+        
+    except Exception as e:
+        print(f"[ERROR] Erro ao buscar estatísticas: {e}")
+        return jsonify({'error': str(e)}), 500
 
 # Rota para servir arquivos de upload
 @app.route('/uploads/<path:filename>')

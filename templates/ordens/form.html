@@ -105,9 +105,12 @@
                             <label for="valor_deslocamento" class="form-label">Frete/Deslocamento (R$)</label>
                             <input type="number" class="form-control" id="valor_deslocamento" step="0.01" min="0" readonly>
                         </div>
-                        <div class="col-md-4 d-flex align-items-end">
+                        <div class="col-md-4 d-flex align-items-end gap-2">
                             <button type="button" class="btn btn-secondary" id="btnRecalcularTaxa">
                                 Recalcular Taxa
+                            </button>
+                            <button type="button" class="btn btn-outline-success" id="btnTaxaIsenta">
+                                Taxa Isenta
                             </button>
                         </div>
                     </div>
@@ -338,6 +341,15 @@
                     <input type="number" class="form-control" id="servico_qtd" min="1" value="1">
                 </div>
                 <div class="mb-3">
+                    <label for="servico_local" class="form-label">Local (opcional)</label>
+                    <input type="text" class="form-control" id="servico_local" 
+                           placeholder="Ex: Sala, Cozinha, Área Externa...">
+                </div>
+                <div class="mb-3">
+                    <label for="servico_data" class="form-label">Data (opcional)</label>
+                    <input type="date" class="form-control" id="servico_data">
+                </div>
+                <div class="mb-3">
                     <label for="servico_preco" class="form-label">Preço Unitário (R$)</label>
                     <input type="number" class="form-control" id="servico_preco" step="0.01" min="0" value="0" readonly>
                 </div>
@@ -374,6 +386,10 @@
                 <div class="mb-3">
                     <label for="material_preco" class="form-label">Preço Unitário (R$)</label>
                     <input type="number" class="form-control" id="material_preco" step="0.01" min="0" value="0">
+                </div>
+                <div class="mb-3">
+                    <label for="material_data" class="form-label">Data</label>
+                    <input type="date" class="form-control" id="material_data">
                 </div>
             </div>
             <div class="modal-footer">
@@ -511,6 +527,29 @@ document.getElementById('btnRecalcularTaxa').addEventListener('click', function(
     const taxaKm = parseFloat(document.getElementById('taxa_km').value) || 5.0;
     distanceData.displacement_cost = distanceData.distance_km * taxaKm;
     document.getElementById('valor_deslocamento').value = distanceData.displacement_cost.toFixed(2);
+    atualizarResumo();
+});
+
+// Taxa isenta - definir frete/deslocamento como 0,00
+document.getElementById('btnTaxaIsenta').addEventListener('click', function() {
+    // Definir valor do deslocamento como 0
+    document.getElementById('valor_deslocamento').value = '0.00';
+    
+    // Atualizar distanceData se existir
+    if (distanceData) {
+        distanceData.displacement_cost = 0;
+    } else {
+        // Criar distanceData com valor 0 para manter consistência
+        distanceData = {
+            distance_km: 0,
+            displacement_cost: 0
+        };
+    }
+    
+    // Garantir que o resultado da distância esteja visível
+    document.getElementById('distanciaResultado').style.display = 'block';
+    document.getElementById('distanciaKm').textContent = '0.00';
+    
     atualizarResumo();
 });
 
@@ -784,6 +823,7 @@ function initMaterialSearch() {
 
 // Adicionar serviço
 document.getElementById('btnAddServico').addEventListener('click', function() {
+    servicoEditando = null; // Resetar modo de edição
     const servicoSearch = document.getElementById('servico_search');
     const servicoSelect = document.getElementById('servico_select');
     if (servicoSearch) servicoSearch.value = '';
@@ -791,8 +831,15 @@ document.getElementById('btnAddServico').addEventListener('click', function() {
     document.getElementById('servico_tempo').value = '0';
     document.getElementById('servico_taxa').value = '0';
     document.getElementById('servico_qtd').value = '1';
+    document.getElementById('servico_local').value = '';
+    document.getElementById('servico_data').value = '';
     document.getElementById('servico_preco').value = '0';
     document.getElementById('servico_preco').readOnly = false;
+    
+    // Atualizar título do modal
+    document.querySelector('#modalServico .modal-title').textContent = 'Adicionar Serviço';
+    document.getElementById('btnSalvarServico').textContent = 'Salvar';
+    
     initServicoSearch(); // Inicializar busca quando modal abrir
     new bootstrap.Modal(document.getElementById('modalServico')).show();
 });
@@ -828,6 +875,8 @@ document.getElementById('btnSalvarServico').addEventListener('click', function()
     const precoUnit = parseFloat(document.getElementById('servico_preco').value) || 0;
     const tempo = parseFloat(document.getElementById('servico_tempo').value) || 0;
     const taxa = parseFloat(document.getElementById('servico_taxa').value) || 0;
+    const local = document.getElementById('servico_local').value.trim() || null;
+    const data = document.getElementById('servico_data').value || null;
     
     const servico = {
         id: parseInt(servicoId),
@@ -836,10 +885,19 @@ document.getElementById('btnSalvarServico').addEventListener('click', function()
         qtd: qtd,
         total: precoUnit * qtd,
         tempo: tempo,
-        taxa: taxa
+        taxa: taxa,
+        local: local,
+        data: data
     };
     
-    servicos.push(servico);
+    // Se estiver editando, atualizar; senão, adicionar novo
+    if (servicoEditando !== null) {
+        servicos[servicoEditando] = servico;
+        servicoEditando = null;
+    } else {
+        servicos.push(servico);
+    }
+    
     atualizarListaServicos();
     atualizarResumo();
     bootstrap.Modal.getInstance(document.getElementById('modalServico')).hide();
@@ -847,16 +905,28 @@ document.getElementById('btnSalvarServico').addEventListener('click', function()
     // Limpar campos
     document.getElementById('servico_search').value = '';
     document.getElementById('servico_select').value = '';
+    document.getElementById('servico_local').value = '';
+    document.getElementById('servico_data').value = '';
+    document.getElementById('servico_tempo').value = '0';
+    document.getElementById('servico_taxa').value = '0';
+    document.getElementById('servico_qtd').value = '1';
+    document.getElementById('servico_preco').value = '0';
 });
 
 // Adicionar material
 document.getElementById('btnAddMaterial').addEventListener('click', function() {
+    materialEditando = null; // Resetar modo de edição
     const materialSearch = document.getElementById('material_search');
     const materialSelect = document.getElementById('material_select');
     if (materialSearch) materialSearch.value = '';
     if (materialSelect) materialSelect.value = '';
     document.getElementById('material_qtd').value = '1';
     document.getElementById('material_preco').value = '0';
+    
+    // Atualizar título do modal
+    document.querySelector('#modalMaterial .modal-title').textContent = 'Adicionar Material';
+    document.getElementById('btnSalvarMaterial').textContent = 'Salvar';
+    
     initMaterialSearch(); // Inicializar busca quando modal abrir
     new bootstrap.Modal(document.getElementById('modalMaterial')).show();
 });
@@ -873,16 +943,25 @@ document.getElementById('btnSalvarMaterial').addEventListener('click', function(
     
     const qtd = parseInt(document.getElementById('material_qtd').value) || 1;
     const precoUnit = parseFloat(document.getElementById('material_preco').value) || 0;
+    const materialData = document.getElementById('material_data').value || null;
     
     const material = {
         id: parseInt(materialId),
         nome: materialNome,
         preco_unit: precoUnit,
         qtd: qtd,
-        total: precoUnit * qtd
+        total: precoUnit * qtd,
+        data: materialData
     };
     
-    materiais.push(material);
+    // Se estiver editando, atualizar; senão, adicionar novo
+    if (materialEditando !== null) {
+        materiais[materialEditando] = material;
+        materialEditando = null;
+    } else {
+        materiais.push(material);
+    }
+    
     atualizarListaMateriais();
     atualizarResumo();
     bootstrap.Modal.getInstance(document.getElementById('modalMaterial')).hide();
@@ -890,6 +969,9 @@ document.getElementById('btnSalvarMaterial').addEventListener('click', function(
     // Limpar campos
     document.getElementById('material_search').value = '';
     document.getElementById('material_select').value = '';
+    document.getElementById('material_qtd').value = '1';
+    document.getElementById('material_preco').value = '0';
+    document.getElementById('material_data').value = '';
 });
 
 // Atualizar valor do imposto ao selecionar
@@ -989,21 +1071,47 @@ function atualizarListaServicos() {
     
     servicos.forEach((s, index) => {
         const div = document.createElement('div');
-        div.className = 'item-row';
+        div.className = 'item-row mb-2 p-2 border rounded';
+        const localText = s.local ? `<small class="text-muted d-block">Local: ${s.local}</small>` : '';
+        const dataText = s.data ? `<small class="text-muted d-block">Data: ${s.data}</small>` : '';
         div.innerHTML = `
-            <div class="row">
-                <div class="col-md-4">${s.nome}</div>
+            <div class="row align-items-center">
+                <div class="col-md-4">
+                    ${s.nome}
+                    ${localText}
+                    ${dataText}
+                </div>
                 <div class="col-md-2">R$ ${s.preco_unit.toFixed(2)}</div>
                 <div class="col-md-2">Qtd: ${s.qtd}</div>
                 <div class="col-md-2">Total: R$ ${s.total.toFixed(2)}</div>
                 <div class="col-md-2">
-                    <button type="button" class="btn btn-sm btn-danger" onclick="removerServico(${index})">
-                        <i class="bi bi-trash"></i>
-                    </button>
+                    <div class="btn-group" role="group">
+                        <button type="button" class="btn btn-sm btn-primary btn-editar-servico" data-index="${index}">
+                            <i class="bi bi-pencil"></i>
+                        </button>
+                        <button type="button" class="btn btn-sm btn-danger btn-remover-servico" data-index="${index}">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </div>
                 </div>
             </div>
         `;
         container.appendChild(div);
+    });
+    
+    // Adicionar event listeners para os botões
+    container.querySelectorAll('.btn-remover-servico').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const index = parseInt(this.dataset.index);
+            removerServico(index);
+        });
+    });
+    
+    container.querySelectorAll('.btn-editar-servico').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const index = parseInt(this.dataset.index);
+            editarServico(index);
+        });
     });
 }
 
@@ -1013,21 +1121,41 @@ function atualizarListaMateriais() {
     
     materiais.forEach((m, index) => {
         const div = document.createElement('div');
-        div.className = 'item-row';
+        div.className = 'item-row mb-2 p-2 border rounded';
         div.innerHTML = `
-            <div class="row">
+            <div class="row align-items-center">
                 <div class="col-md-4">${m.nome}</div>
                 <div class="col-md-2">R$ ${m.preco_unit.toFixed(2)}</div>
                 <div class="col-md-2">Qtd: ${m.qtd}</div>
                 <div class="col-md-2">Total: R$ ${m.total.toFixed(2)}</div>
                 <div class="col-md-2">
-                    <button type="button" class="btn btn-sm btn-danger" onclick="removerMaterial(${index})">
-                        <i class="bi bi-trash"></i>
-                    </button>
+                    <div class="btn-group" role="group">
+                        <button type="button" class="btn btn-sm btn-primary btn-editar-material" data-index="${index}">
+                            <i class="bi bi-pencil"></i>
+                        </button>
+                        <button type="button" class="btn btn-sm btn-danger btn-remover-material" data-index="${index}">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </div>
                 </div>
             </div>
         `;
         container.appendChild(div);
+    });
+    
+    // Adicionar event listeners para os botões
+    container.querySelectorAll('.btn-remover-material').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const index = parseInt(this.dataset.index);
+            removerMaterial(index);
+        });
+    });
+    
+    container.querySelectorAll('.btn-editar-material').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const index = parseInt(this.dataset.index);
+            editarMaterial(index);
+        });
     });
 }
 
@@ -1055,15 +1183,68 @@ function atualizarListaAdicionais() {
 }
 
 function removerServico(index) {
-    servicos.splice(index, 1);
-    atualizarListaServicos();
-    atualizarResumo();
+    if (confirm('Deseja realmente remover este serviço?')) {
+        servicos.splice(index, 1);
+        atualizarListaServicos();
+        atualizarResumo();
+    }
 }
 
 function removerMaterial(index) {
-    materiais.splice(index, 1);
-    atualizarListaMateriais();
-    atualizarResumo();
+    if (confirm('Deseja realmente remover este material?')) {
+        materiais.splice(index, 1);
+        atualizarListaMateriais();
+        atualizarResumo();
+    }
+}
+
+// Variável para controlar se está editando um serviço/material
+let servicoEditando = null;
+let materialEditando = null;
+
+function editarServico(index) {
+    const servico = servicos[index];
+    servicoEditando = index;
+    
+    // Preencher campos do modal
+    document.getElementById('servico_select').value = servico.id;
+    document.getElementById('servico_search').value = servico.nome;
+    document.getElementById('servico_tempo').value = servico.tempo || 0;
+    document.getElementById('servico_taxa').value = servico.taxa || 0;
+    document.getElementById('servico_qtd').value = servico.qtd || 1;
+    document.getElementById('servico_local').value = servico.local || '';
+    document.getElementById('servico_data').value = servico.data || '';
+    document.getElementById('servico_preco').value = servico.preco_unit.toFixed(2);
+    
+    // Atualizar título do modal
+    document.querySelector('#modalServico .modal-title').textContent = 'Editar Serviço';
+    
+    // Atualizar texto do botão
+    document.getElementById('btnSalvarServico').textContent = 'Salvar Alterações';
+    
+    // Abrir modal
+    new bootstrap.Modal(document.getElementById('modalServico')).show();
+}
+
+function editarMaterial(index) {
+    const material = materiais[index];
+    materialEditando = index;
+    
+    // Preencher campos do modal
+    document.getElementById('material_select').value = material.id;
+    document.getElementById('material_search').value = material.nome;
+    document.getElementById('material_qtd').value = material.qtd || 1;
+    document.getElementById('material_preco').value = material.preco_unit.toFixed(2);
+    document.getElementById('material_data').value = material.data || '';
+    
+    // Atualizar título do modal
+    document.querySelector('#modalMaterial .modal-title').textContent = 'Editar Material';
+    
+    // Atualizar texto do botão
+    document.getElementById('btnSalvarMaterial').textContent = 'Salvar Alterações';
+    
+    // Abrir modal
+    new bootstrap.Modal(document.getElementById('modalMaterial')).show();
 }
 
 function removerAdicional(index) {
@@ -1129,9 +1310,10 @@ document.getElementById('ordemForm').addEventListener('submit', async function(e
     const enderecoOrigem = document.getElementById('endereco_origem').value;
     const enderecoDestino = document.getElementById('endereco_destino').value;
     
-    // Validar: precisa ter endereços OU KM manual
-    if ((!enderecoOrigem || !enderecoDestino) && (!kmManual || kmManual <= 0)) {
-        alert('Preencha os endereços ou informe os KM manualmente!');
+    // Validar: precisa ter endereços OU KM manual OU ter clicado em "Taxa Isenta" (distanceData com valor 0)
+    const temTaxaIsenta = distanceData && distanceData.displacement_cost === 0;
+    if ((!enderecoOrigem || !enderecoDestino) && (!kmManual || kmManual <= 0) && !temTaxaIsenta) {
+        alert('Preencha os endereços, informe os KM manualmente ou clique em "Taxa Isenta"!');
         return;
     }
     
@@ -1141,6 +1323,14 @@ document.getElementById('ordemForm').addEventListener('submit', async function(e
         distanceData = {
             distance_km: kmManual,
             displacement_cost: kmManual * taxaKm
+        };
+    }
+    
+    // Se não tem distanceData e não tem KM manual, mas o usuário quer taxa isenta, criar distanceData com valor 0
+    if (!distanceData && (!kmManual || kmManual <= 0) && (!enderecoOrigem || !enderecoDestino)) {
+        distanceData = {
+            distance_km: 0,
+            displacement_cost: 0
         };
     }
     
@@ -1244,6 +1434,32 @@ carregarMateriais();
     atualizarListaAdicionais();
     atualizarResumo();
 {% endif %}
+
+// Limpar campos quando modais forem fechados
+document.getElementById('modalServico').addEventListener('hidden.bs.modal', function() {
+    servicoEditando = null;
+    document.getElementById('servico_search').value = '';
+    document.getElementById('servico_select').value = '';
+    document.getElementById('servico_local').value = '';
+    document.getElementById('servico_data').value = '';
+    document.getElementById('servico_tempo').value = '0';
+    document.getElementById('servico_taxa').value = '0';
+    document.getElementById('servico_qtd').value = '1';
+    document.getElementById('servico_preco').value = '0';
+    document.querySelector('#modalServico .modal-title').textContent = 'Adicionar Serviço';
+    document.getElementById('btnSalvarServico').textContent = 'Salvar';
+});
+
+document.getElementById('modalMaterial').addEventListener('hidden.bs.modal', function() {
+    materialEditando = null;
+    document.getElementById('material_search').value = '';
+    document.getElementById('material_select').value = '';
+    document.getElementById('material_qtd').value = '1';
+    document.getElementById('material_preco').value = '0';
+    document.getElementById('material_data').value = '';
+    document.querySelector('#modalMaterial .modal-title').textContent = 'Adicionar Material';
+    document.getElementById('btnSalvarMaterial').textContent = 'Salvar';
+});
 
 }); // Fim do DOMContentLoaded
 </script>

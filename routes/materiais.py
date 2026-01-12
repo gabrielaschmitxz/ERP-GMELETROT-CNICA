@@ -31,11 +31,13 @@ def novo():
             marca = data.get('marca', '').strip()
             quantidade = str(data.get('quantidade', '0'))
             preco_unit = str(data.get('preco_unit', '0'))
+            data_material = data.get('data', '').strip()
         else:
             nome = request.form.get('nome', '').strip()
             marca = request.form.get('marca', '').strip()
             quantidade = request.form.get('quantidade', '0').strip()
             preco_unit = request.form.get('preco_unit', '0').strip()
+            data_material = request.form.get('data', '').strip()
         
         if not nome:
             if request.is_json:
@@ -47,13 +49,22 @@ def novo():
             quantidade = int(quantidade) if quantidade else 0
             preco_unit = float(preco_unit.replace(',', '.')) if preco_unit else 0.0
             
+            # Converter data se fornecida
+            data_material_parsed = None
+            if data_material:
+                try:
+                    from datetime import datetime
+                    data_material_parsed = datetime.strptime(data_material, '%Y-%m-%d').date()
+                except:
+                    pass
+            
             conn = get_db_connection()
             cursor = conn.cursor()
             cursor.execute('''
-                INSERT INTO materiais (nome, marca, quantidade, preco_unit)
-                VALUES (%s, %s, %s, %s)
+                INSERT INTO materiais (nome, marca, quantidade, preco_unit, data)
+                VALUES (%s, %s, %s, %s, %s)
                 RETURNING id
-            ''', (nome, marca or None, quantidade, preco_unit))
+            ''', (nome, marca or None, quantidade, preco_unit, data_material_parsed))
             new_id = cursor.fetchone()[0]
             conn.commit()
             conn.close()
@@ -92,6 +103,7 @@ def editar(id):
             marca = request.form.get('marca', '').strip()
             quantidade = request.form.get('quantidade', '0').strip()
             preco_unit = request.form.get('preco_unit', '0').strip()
+            data_material = request.form.get('data', '').strip()
             
             if not nome:
                 flash('Nome é obrigatório!', 'danger')
@@ -101,11 +113,20 @@ def editar(id):
                 quantidade = int(quantidade) if quantidade else 0
                 preco_unit = float(preco_unit.replace(',', '.')) if preco_unit else 0.0
                 
+                # Converter data se fornecida
+                data_material_parsed = None
+                if data_material:
+                    try:
+                        from datetime import datetime
+                        data_material_parsed = datetime.strptime(data_material, '%Y-%m-%d').date()
+                    except:
+                        pass
+                
                 cursor.execute('''
                     UPDATE materiais 
-                    SET nome = %s, marca = %s, quantidade = %s, preco_unit = %s
+                    SET nome = %s, marca = %s, quantidade = %s, preco_unit = %s, data = %s
                     WHERE id = %s
-                ''', (nome, marca or None, quantidade, preco_unit, id))
+                ''', (nome, marca or None, quantidade, preco_unit, data_material_parsed, id))
                 conn.commit()
                 conn.close()
                 

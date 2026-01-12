@@ -1,6 +1,7 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify
 from database_web import get_db_connection
 from decorators import login_required
+from datetime import datetime
 import psycopg2.extras
 
 bp = Blueprint('servicos', __name__, url_prefix='/servicos')
@@ -12,6 +13,27 @@ def listar():
     try:
         conn = get_db_connection()
         cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+        
+        # Migração automática: adicionar colunas 'local' e 'data' se não existirem
+        cursor.execute('''
+            DO $$ 
+            BEGIN 
+                IF NOT EXISTS (
+                    SELECT 1 FROM information_schema.columns 
+                    WHERE table_name='servicos' AND column_name='local'
+                ) THEN
+                    ALTER TABLE servicos ADD COLUMN local VARCHAR(255);
+                END IF;
+                IF NOT EXISTS (
+                    SELECT 1 FROM information_schema.columns 
+                    WHERE table_name='servicos' AND column_name='data'
+                ) THEN
+                    ALTER TABLE servicos ADD COLUMN data DATE;
+                END IF;
+            END $$;
+        ''')
+        conn.commit()
+        
         cursor.execute('SELECT * FROM servicos ORDER BY nome')
         servicos = cursor.fetchall()
         conn.close()
@@ -45,13 +67,48 @@ def novo():
             preco_unit = float(preco_unit.replace(',', '.')) if preco_unit else 0.0
             tempo_h = float(tempo_h.replace(',', '.')) if tempo_h else 0.0
             
+            # Obter local e data do formulário
+            if request.is_json:
+                local = data.get('local', '').strip() or None
+                data_servico = data.get('data') or None
+            else:
+                local = request.form.get('local', '').strip() or None
+                data_servico_str = request.form.get('data', '').strip()
+                data_servico = None
+                if data_servico_str:
+                    try:
+                        data_servico = datetime.strptime(data_servico_str, "%Y-%m-%d").date()
+                    except:
+                        data_servico = None
+            
             conn = get_db_connection()
             cursor = conn.cursor()
+            
+            # Migração automática: adicionar colunas 'local' e 'data' se não existirem
             cursor.execute('''
-                INSERT INTO servicos (nome, preco_unit, tempo_h)
-                VALUES (%s, %s, %s)
+                DO $$ 
+                BEGIN 
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns 
+                        WHERE table_name='servicos' AND column_name='local'
+                    ) THEN
+                        ALTER TABLE servicos ADD COLUMN local VARCHAR(255);
+                    END IF;
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns 
+                        WHERE table_name='servicos' AND column_name='data'
+                    ) THEN
+                        ALTER TABLE servicos ADD COLUMN data DATE;
+                    END IF;
+                END $$;
+            ''')
+            conn.commit()
+            
+            cursor.execute('''
+                INSERT INTO servicos (nome, preco_unit, tempo_h, local, data)
+                VALUES (%s, %s, %s, %s, %s)
                 RETURNING id
-            ''', (nome, preco_unit, tempo_h))
+            ''', (nome, preco_unit, tempo_h, local, data_servico))
             new_id = cursor.fetchone()[0]
             conn.commit()
             conn.close()
@@ -62,7 +119,9 @@ def novo():
                     'id': new_id, 
                     'nome': nome, 
                     'preco_unit': preco_unit,
-                    'tempo_h': tempo_h
+                    'tempo_h': tempo_h,
+                    'local': local,
+                    'data': data_servico.strftime('%Y-%m-%d') if data_servico else None
                 })
             
             flash('Serviço cadastrado com sucesso!', 'success')
@@ -90,6 +149,14 @@ def editar(id):
             nome = request.form.get('nome', '').strip()
             preco_unit = request.form.get('preco_unit', '0').strip()
             tempo_h = request.form.get('tempo_h', '0').strip()
+            local = request.form.get('local', '').strip() or None
+            data_servico_str = request.form.get('data', '').strip()
+            data_servico = None
+            if data_servico_str:
+                try:
+                    data_servico = datetime.strptime(data_servico_str, "%Y-%m-%d").date()
+                except:
+                    data_servico = None
             
             if not nome:
                 flash('Nome é obrigatório!', 'danger')
@@ -99,11 +166,31 @@ def editar(id):
                 preco_unit = float(preco_unit.replace(',', '.')) if preco_unit else 0.0
                 tempo_h = float(tempo_h.replace(',', '.')) if tempo_h else 0.0
                 
+                # Migração automática: adicionar colunas 'local' e 'data' se não existirem
+                cursor.execute('''
+                    DO $$ 
+                    BEGIN 
+                        IF NOT EXISTS (
+                            SELECT 1 FROM information_schema.columns 
+                            WHERE table_name='servicos' AND column_name='local'
+                        ) THEN
+                            ALTER TABLE servicos ADD COLUMN local VARCHAR(255);
+                        END IF;
+                        IF NOT EXISTS (
+                            SELECT 1 FROM information_schema.columns 
+                            WHERE table_name='servicos' AND column_name='data'
+                        ) THEN
+                            ALTER TABLE servicos ADD COLUMN data DATE;
+                        END IF;
+                    END $$;
+                ''')
+                conn.commit()
+                
                 cursor.execute('''
                     UPDATE servicos 
-                    SET nome = %s, preco_unit = %s, tempo_h = %s
+                    SET nome = %s, preco_unit = %s, tempo_h = %s, local = %s, data = %s
                     WHERE id = %s
-                ''', (nome, preco_unit, tempo_h, id))
+                ''', (nome, preco_unit, tempo_h, local, data_servico, id))
                 conn.commit()
                 conn.close()
                 
@@ -152,12 +239,32 @@ def api_buscar():
         conn = get_db_connection()
         cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
         
+        # Migração automática: adicionar colunas 'local' e 'data' se não existirem
+        cursor.execute('''
+            DO $$ 
+            BEGIN 
+                IF NOT EXISTS (
+                    SELECT 1 FROM information_schema.columns 
+                    WHERE table_name='servicos' AND column_name='local'
+                ) THEN
+                    ALTER TABLE servicos ADD COLUMN local VARCHAR(255);
+                END IF;
+                IF NOT EXISTS (
+                    SELECT 1 FROM information_schema.columns 
+                    WHERE table_name='servicos' AND column_name='data'
+                ) THEN
+                    ALTER TABLE servicos ADD COLUMN data DATE;
+                END IF;
+            END $$;
+        ''')
+        conn.commit()
+        
         if search:
             # Busca com priorização: primeiro os que começam com o termo, depois os que contêm
             search_pattern_start = f'{search}%'
             search_pattern_any = f'%{search}%'
             cursor.execute('''
-                SELECT id, nome, preco_unit, tempo_h FROM servicos 
+                SELECT id, nome, preco_unit, tempo_h, local, data FROM servicos 
                 WHERE nome ILIKE %s
                 ORDER BY 
                     CASE 
@@ -169,7 +276,7 @@ def api_buscar():
             print(f'[DEBUG] Busca de serviços: "{search}" - {cursor.rowcount} resultados')
         else:
             # Sem busca, retornar todos ordenados
-            cursor.execute('SELECT id, nome, preco_unit, tempo_h FROM servicos ORDER BY nome')
+            cursor.execute('SELECT id, nome, preco_unit, tempo_h, local, data FROM servicos ORDER BY nome')
             print(f'[DEBUG] Listando todos os serviços - {cursor.rowcount} resultados')
         
         servicos = cursor.fetchall()
@@ -182,7 +289,9 @@ def api_buscar():
             'id': s['id'],
             'nome': s['nome'],
             'preco_unit': float(s['preco_unit']),
-            'tempo_h': float(s['tempo_h'] or 0)
+            'tempo_h': float(s['tempo_h'] or 0),
+            'local': s.get('local') or None,
+            'data': s.get('data').strftime('%Y-%m-%d') if s.get('data') else None
         } for s in servicos]
         
         print(f'[DEBUG] Retornando {len(results)} serviços')

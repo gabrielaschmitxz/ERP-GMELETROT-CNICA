@@ -5,7 +5,29 @@
 {% block content %}
 <h2 class="mb-4"><i class="bi bi-speedometer2"></i> Dashboard</h2>
 
-<div class="row g-4">
+<!-- Filtros de Período -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                    <div class="d-flex gap-2 flex-wrap">
+                        <button class="btn btn-outline-primary btn-sm periodo-btn" data-periodo="30">30 Dias</button>
+                        <button class="btn btn-outline-primary btn-sm periodo-btn" data-periodo="60">60 Dias</button>
+                        <button class="btn btn-outline-primary btn-sm periodo-btn" data-periodo="90">90 Dias</button>
+                        <button class="btn btn-outline-primary btn-sm periodo-btn" data-periodo="180">180 Dias</button>
+                        <button class="btn btn-outline-primary btn-sm periodo-btn" data-periodo="ano_vigente">Ano Vigente</button>
+                    </div>
+                    <button class="btn btn-outline-danger btn-sm" id="btnResetFiltros">
+                        <i class="bi bi-arrow-counterclockwise"></i> Remover Filtros
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4" id="dashboardCards">
     <div class="col-md-4">
         <div class="card text-center">
             <div class="card-body">
@@ -90,53 +112,105 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0/dist/chartjs-plugin-datalabels.min.js"></script>
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        var statusCounts = {{ stats.status_counts | tojson }};
-        console.log("[DEBUG - Chart] statusCounts recebido:", statusCounts);
+    var statusChart = null;
+    var periodoAtivo = null;
 
+    function atualizarDashboard(periodo) {
+        periodoAtivo = periodo;
+        
+        // Atualizar estado dos botões
+        document.querySelectorAll('.periodo-btn').forEach(btn => {
+            if (btn.dataset.periodo === periodo) {
+                btn.classList.remove('btn-outline-primary');
+                btn.classList.add('btn-primary');
+            } else {
+                btn.classList.remove('btn-primary');
+                btn.classList.add('btn-outline-primary');
+            }
+        });
+        
+        // Fazer requisição AJAX
+        fetch(`/api/dashboard/stats?periodo=${periodo || ''}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    console.error('Erro ao buscar estatísticas:', data.error);
+                    return;
+                }
+                
+                // Atualizar cards
+                atualizarCards(data);
+                
+                // Atualizar gráfico
+                atualizarGrafico(data.status_counts);
+            })
+            .catch(error => {
+                console.error('Erro na requisição:', error);
+            });
+    }
+    
+    function atualizarCards(stats) {
+        var cards = document.querySelectorAll('#dashboardCards .col-md-4');
+        if (cards.length >= 6) {
+            cards[0].querySelector('h2').textContent = stats.clientes;
+            cards[1].querySelector('h2').textContent = stats.ordens_servico;
+            cards[2].querySelector('h2').textContent = 'R$ ' + stats.total_faturado.toFixed(2);
+            cards[3].querySelector('h2').textContent = 'R$ ' + stats.total_frete_deslocamento.toFixed(2);
+            cards[4].querySelector('h2').textContent = 'R$ ' + stats.pagamentos_em_aberto.toFixed(2);
+            cards[5].querySelector('h2').textContent = 'R$ ' + stats.ticket_medio.toFixed(2);
+        }
+    }
+    
+    function atualizarGrafico(statusCounts) {
         var labels = Object.keys(statusCounts);
         var data = Object.values(statusCounts);
-        console.log("[DEBUG - Chart] Labels do gráfico:", labels);
-        console.log("[DEBUG - Chart] Dados do gráfico:", data);
-
+        
         if (labels.length === 0) {
+            if (statusChart) {
+                statusChart.destroy();
+            }
             var ctx = document.getElementById('statusChart').getContext('2d');
+            ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
             ctx.font = '16px Arial';
             ctx.fillStyle = '#888';
             ctx.textAlign = 'center';
             ctx.fillText('Nenhum dado de status para exibir', ctx.canvas.width / 2, ctx.canvas.height / 2);
-            return; // Sai da função se não houver dados
+            return;
         }
-
+        
         // Cores neutras em tom azul
         var bluePalette = [
-            'rgba(173, 216, 230, 0.8)', // Azul Claro Neutro
-            'rgba(100, 149, 237, 0.8)', // Azul Médio Neutro
-            'rgba(70, 130, 180, 0.8)',  // Azul Mais Escuro Neutro (SteelBlue)
-            'rgba(46, 90, 130, 0.8)',   // Azul Escuro Forte
-            'rgba(128, 140, 153, 0.8)', // Cinza Azulado Neutro (para outros)
-            'rgba(95, 158, 160, 0.8)'   // Azul Esverdeado Neutro
+            'rgba(173, 216, 230, 0.8)',
+            'rgba(100, 149, 237, 0.8)',
+            'rgba(70, 130, 180, 0.8)',
+            'rgba(46, 90, 130, 0.8)',
+            'rgba(128, 140, 153, 0.8)',
+            'rgba(95, 158, 160, 0.8)'
         ];
-
+        
         var backgroundColors = labels.map((label, index) => {
             return bluePalette[index % bluePalette.length];
         });
         
-        var borderColors = backgroundColors.map(color => color.replace('0.8', '1')); // Borda mais sólida
-
+        var borderColors = backgroundColors.map(color => color.replace('0.8', '1'));
+        
         var ctx = document.getElementById('statusChart').getContext('2d');
-        var statusChart = new Chart(ctx, {
+        
+        if (statusChart) {
+            statusChart.destroy();
+        }
+        
+        statusChart = new Chart(ctx, {
             type: 'bar',
             data: {
                 labels: labels,
                 datasets: [{
-                    // label: 'Número de Ordens de Serviço', // Removido conforme solicitado
                     data: data,
                     backgroundColor: backgroundColors,
                     borderColor: borderColors,
                     borderWidth: 1,
-                    barPercentage: 0.6, // Barras mais finas
-                    categoryPercentage: 0.7 // Espaçamento entre categorias
+                    barPercentage: 0.6,
+                    categoryPercentage: 0.7
                 }]
             },
             options: {
@@ -144,13 +218,13 @@
                 maintainAspectRatio: false,
                 plugins: {
                     legend: {
-                        display: false // Oculta a legenda completamente, incluindo o label do dataset
+                        display: false
                     },
                     datalabels: {
                         anchor: 'end',
                         align: 'top',
-                        formatter: (value) => value, // Exibe o valor exato
-                        color: '#000', // Cor do texto
+                        formatter: (value) => value,
+                        color: '#000',
                         font: {
                             weight: 'bold'
                         }
@@ -160,17 +234,39 @@
                     y: {
                         beginAtZero: true,
                         ticks: {
-                            precision: 0 // Garante números inteiros no eixo Y
+                            precision: 0
                         }
                     },
                     x: {
                         grid: {
-                            display: false // Oculta as linhas de grade no eixo X
+                            display: false
                         }
                     }
                 }
             },
-            plugins: [ChartDataLabels] // Registrar o plugin
+            plugins: [ChartDataLabels]
+        });
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        var statusCounts = {{ stats.status_counts | tojson }};
+        
+        // Inicializar gráfico
+        atualizarGrafico(statusCounts);
+        
+        // Event listeners para botões de período
+        document.querySelectorAll('.periodo-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                var periodo = this.dataset.periodo;
+                atualizarDashboard(periodo);
+            });
+        });
+        
+        // Event listener para botão de reset
+        document.getElementById('btnResetFiltros').addEventListener('click', function() {
+            if (confirm('Deseja realmente remover todos os filtros e voltar aos dados completos?')) {
+                atualizarDashboard(null);
+            }
         });
     });
 </script>
