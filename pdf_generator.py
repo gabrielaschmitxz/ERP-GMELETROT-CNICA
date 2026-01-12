@@ -384,11 +384,12 @@ class OrderPDFGenerator:
                             except:
                                 data_formatada = ''
                         
+                        local_text = servico.get('local', '') or ''
                         if tem_data:
                             services_data.append([
                                 str(i),
                                 Paragraph(desc_text, self.styles['CustomNormal']),
-                                servico.get('local', ''),
+                                Paragraph(local_text, self.styles['CustomNormal']),
                                 data_formatada,
                                 str(servico['qtd']),
                                 f"R$ {servico['preco_unit']:.2f}",
@@ -398,7 +399,7 @@ class OrderPDFGenerator:
                             services_data.append([
                                 str(i),
                                 Paragraph(desc_text, self.styles['CustomNormal']),
-                                servico.get('local', ''),
+                                Paragraph(local_text, self.styles['CustomNormal']),
                                 str(servico['qtd']),
                                 f"R$ {servico['preco_unit']:.2f}",
                                 f"R$ {servico['total']:.2f}"
@@ -606,12 +607,13 @@ class OrderPDFGenerator:
                         except:
                             data_formatada = ''
                     
+                    local_text = servico.get('local', '') or ''
                     if tem_local:
                         if tem_data:
                             services_data.append([
                                 str(i),
                                 Paragraph(desc_text, self.styles['CustomNormal']),
-                                servico.get('local', ''),
+                                Paragraph(local_text, self.styles['CustomNormal']),
                                 data_formatada,
                                 str(servico['qtd']),
                                 f"R$ {servico['preco_unit']:.2f}",
@@ -621,7 +623,7 @@ class OrderPDFGenerator:
                             services_data.append([
                                 str(i),
                                 Paragraph(desc_text, self.styles['CustomNormal']),
-                                servico.get('local', ''),
+                                Paragraph(local_text, self.styles['CustomNormal']),
                                 str(servico['qtd']),
                                 f"R$ {servico['preco_unit']:.2f}",
                                 f"R$ {servico['total']:.2f}"
@@ -1319,11 +1321,12 @@ class OrderPDFGenerator:
             for i, servico in enumerate(servicos_local, 1):
                 total_local += servico['total']
                 
+                local_text = servico.get('local', '') or ''
                 if tem_data_global:
                     services_data.append([
                         str(i),
                         Paragraph(servico['nome'], self.styles['CustomNormal']),
-                        servico.get('local', ''),
+                        Paragraph(local_text, self.styles['CustomNormal']),
                         servico.get('data', ''),
                         str(servico['qtd']),
                         f"R$ {servico['preco_unit']:.2f}",
@@ -1333,7 +1336,7 @@ class OrderPDFGenerator:
                     services_data.append([
                         str(i),
                         Paragraph(servico['nome'], self.styles['CustomNormal']),
-                        servico.get('local', ''),
+                        Paragraph(local_text, self.styles['CustomNormal']),
                         str(servico['qtd']),
                         f"R$ {servico['preco_unit']:.2f}",
                         f"R$ {servico['total']:.2f}"
