@@ -1182,6 +1182,10 @@ class OrderPDFGenerator:
         
         # Resumo financeiro
         story.extend(self.create_resumo_financeiro_relatorio_mensal(report_data))
+        story.append(Spacer(1, 20))
+        
+        # Assinatura padrão
+        story.extend(self.create_assinatura_padrao_relatorio_mensal())
         
         # Construir PDF
         doc.build(story)
@@ -1639,5 +1643,140 @@ class OrderPDFGenerator:
         
         elements.append(KeepTogether(composition_table))
         return elements
-
+    
+    def create_assinatura_padrao_relatorio_mensal(self):
+        """Criar seção de assinatura padrão para o relatório mensal"""
+        elements = []
+        elements.append(Spacer(1, 20))
+        
+        # Buscar assinatura padrão
+        assinatura_path = None
+        assinatura_nome = None
+        assinatura_cargo = None
+        
+        try:
+            conn = get_db_connection()
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+            
+            # Adicionar coluna cargo se não existir (migração)
+            try:
+                cursor.execute('''
+                    DO $$ 
+                    BEGIN
+                        IF NOT EXISTS (
+                            SELECT 1 FROM information_schema.columns 
+                            WHERE table_name='assinaturas' AND column_name='cargo'
+                        ) THEN
+                            ALTER TABLE assinaturas ADD COLUMN cargo VARCHAR(255) DEFAULT 'Técnico Eletricista Industrial/Residencial';
+                        END IF;
+                    END $$;
+                ''')
+                conn.commit()
+            except:
+                pass
+            
+            # Buscar assinatura padrão
+            cursor.execute('''
+                SELECT caminho_imagem, nome, cargo FROM assinaturas WHERE padrao = true AND ativo = true LIMIT 1
+            ''')
+            result = cursor.fetchone()
+            if result:
+                assinatura_path = result['caminho_imagem']
+                assinatura_nome = result['nome']
+                assinatura_cargo = result.get('cargo') if 'cargo' in result else 'Técnico Eletricista Industrial/Residencial'
+            conn.close()
+        except Exception as e:
+            print(f"Erro ao buscar assinatura padrão: {e}")
+        
+        # Ajustar caminho da imagem se necessário
+        if assinatura_path:
+            # Verificar se o caminho está na pasta uploads/assinaturas
+            if not os.path.exists(assinatura_path):
+                # Tentar ajustar o caminho
+                if 'uploads/assinaturas/' in assinatura_path or assinatura_path.startswith('uploads/'):
+                    # Tentar encontrar na pasta uploads
+                    filename = assinatura_path.replace('uploads/', '')
+                    if os.path.exists(os.path.join('uploads', filename)):
+                        assinatura_path = os.path.join('uploads', filename)
+                elif 'assinaturas/' in assinatura_path or ('/' not in assinatura_path and not assinatura_path.startswith('uploads/')):
+                    # Tentar encontrar na pasta assinaturas (legado)
+                    filename = assinatura_path.replace('assinaturas/', '') if 'assinaturas/' in assinatura_path else assinatura_path
+                    if os.path.exists(os.path.join('assinaturas', filename)):
+                        assinatura_path = os.path.join('assinaturas', filename)
+        
+        # Se encontrou assinatura padrão (nome), exibir
+        if assinatura_nome:
+            # Texto da assinatura
+            nome_texto = assinatura_nome if assinatura_nome else ""
+            cargo_texto = assinatura_cargo if assinatura_cargo else 'Técnico Eletricista Industrial/Residencial'
+            
+            # Se encontrou a imagem, tentar carregar
+            if assinatura_path and os.path.exists(assinatura_path):
+                try:
+                    # Carregar e redimensionar imagem mantendo proporção
+                    target_width = 8.0 * cm
+                    
+                    img = Image(assinatura_path)
+                    original_width = img.imageWidth
+                    original_height = img.imageHeight
+                    
+                    # Calcular proporção para manter aspecto
+                    ratio = target_width / original_width
+                    new_height = original_height * ratio
+                    
+                    img = Image(assinatura_path, width=target_width, height=new_height)
+                    img.hAlign = 'CENTER'
+                    
+                    # Adicionar imagem
+                    elements.append(Spacer(1, 5))
+                    elements.append(img)
+                    elements.append(Spacer(1, -5))
+                    
+                except Exception as e:
+                    print(f"Erro ao carregar imagem de assinatura: {e}")
+                    # Se falhar, usar linha de assinatura padrão
+                    assinatura_style = ParagraphStyle(
+                        name='SignatureLine',
+                        parent=self.styles['Normal'],
+                        fontSize=10,
+                        alignment=TA_CENTER
+                    )
+                    assinatura_p = Paragraph("_" * 50, assinatura_style)
+                    elements.append(assinatura_p)
+            else:
+                # Se não tem imagem, usar linha de assinatura padrão
+                assinatura_style = ParagraphStyle(
+                    name='SignatureLine',
+                    parent=self.styles['Normal'],
+                    fontSize=10,
+                    alignment=TA_CENTER
+                )
+                assinatura_p = Paragraph("_" * 50, assinatura_style)
+                elements.append(assinatura_p)
+            
+            # Adicionar texto abaixo da assinatura
+            nome_style = ParagraphStyle(
+                name='SignatureText',
+                parent=self.styles['Normal'],
+                fontSize=10,
+                alignment=TA_CENTER,
+                leading=12
+            )
+            
+            line_width = 8 * cm
+            p_text = Paragraph(f"<b>{nome_texto}</b><br/>{cargo_texto}", nome_style)
+            
+            sig_table = Table([[p_text]], colWidths=[line_width])
+            sig_table.setStyle(TableStyle([
+                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ('LINEABOVE', (0, 0), (-1, 0), 0.5, colors.black),
+                ('TOPPADDING', (0, 0), (-1, -1), 3),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
+            ]))
+            sig_table.hAlign = 'CENTER'
+            elements.append(KeepTogether(sig_table))
+        else:
+            # Se não encontrou assinatura padrão, apenas adicionar espaço
+            elements.append(Spacer(1, 30))
+        
         return elements
