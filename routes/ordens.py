@@ -40,7 +40,7 @@ def listar():
             query += ' AND os.status = %s'
             params.append(status)
         
-        query += ' ORDER BY os.data DESC, os.id DESC'
+        query += ' ORDER BY os.id DESC'
         cursor.execute(query, params)
         ordens = cursor.fetchall()
         

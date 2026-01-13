@@ -20,8 +20,6 @@
                         <th>ID</th>
                         <th>Nome</th>
                         <th>Preço Unit.</th>
-                        <th>Local</th>
-                        <th>Data</th>
                         <th>Ações</th>
                     </tr>
                 </thead>
@@ -31,8 +29,6 @@
                         <td>{{ servico.id }}</td>
                         <td>{{ servico.nome }}</td>
                         <td>R$ {{ "%.2f"|format(servico.preco_unit) }}</td>
-                        <td>{{ servico.local if servico.local else '-' }}</td>
-                        <td>{{ servico.data.strftime('%d/%m/%Y') if servico.data else '-' }}</td>
                         <td>
                             <div class="d-flex gap-1">
                                 <a href="{{ url_for('servicos.editar', id=servico.id) }}" 
@@ -50,7 +46,7 @@
                     </tr>
                     {% else %}
                     <tr>
-                        <td colspan="6" class="text-center">Nenhum serviço encontrado</td>
+                        <td colspan="4" class="text-center">Nenhum serviço encontrado</td>
                     </tr>
                     {% endfor %}
                 </tbody>

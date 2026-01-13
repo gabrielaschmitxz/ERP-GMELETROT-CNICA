@@ -1172,13 +1172,21 @@ function atualizarListaAdicionais() {
                 <div class="col-md-5">${a.descricao}</div>
                 <div class="col-md-2">R$ ${a.valor.toFixed(2)}</div>
                 <div class="col-md-2">
-                    <button type="button" class="btn btn-sm btn-danger" onclick="removerAdicional(${index})">
+                    <button type="button" class="btn btn-sm btn-danger btn-remover-adicional" data-index="${index}">
                         <i class="bi bi-trash"></i>
                     </button>
                 </div>
             </div>
         `;
         container.appendChild(div);
+    });
+    
+    // Adicionar event listeners para os botões de remover
+    container.querySelectorAll('.btn-remover-adicional').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const index = parseInt(this.dataset.index);
+            removerAdicional(index);
+        });
     });
 }
 
@@ -1276,9 +1284,10 @@ function atualizarResumo() {
     `;
 }
 
-// Forma de pagamento - mostrar parcelas
-document.getElementById('forma_pagamento_id').addEventListener('change', function() {
-    const option = this.options[this.selectedIndex];
+// Função para verificar e mostrar campo de parcelas
+function verificarParcelas() {
+    const formaPagamentoSelect = document.getElementById('forma_pagamento_id');
+    const option = formaPagamentoSelect.options[formaPagamentoSelect.selectedIndex];
     const parcelasContainer = document.getElementById('parcelasContainer');
     const parcelasInput = document.getElementById('parcelas');
     
@@ -1290,7 +1299,13 @@ document.getElementById('forma_pagamento_id').addEventListener('change', functio
         parcelasContainer.style.display = 'none';
         parcelasInput.required = false; // Remove a obrigatoriedade
     }
-});
+}
+
+// Forma de pagamento - mostrar parcelas ao mudar
+document.getElementById('forma_pagamento_id').addEventListener('change', verificarParcelas);
+
+// Verificar parcelas ao carregar a página (para edição)
+verificarParcelas();
 
 // Data padrão: hoje (se não estiver editando)
 if (!document.getElementById('data_ordem').value) {

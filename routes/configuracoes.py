@@ -347,6 +347,16 @@ def excluir_assinatura(id):
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
+        
+        # Verificar se há ordens de serviço usando esta assinatura
+        cursor.execute('SELECT COUNT(*) FROM ordens_servico WHERE assinatura_id = %s', (id,))
+        count = cursor.fetchone()[0]
+        
+        if count > 0:
+            flash(f'Não é possível excluir esta assinatura pois ela está sendo utilizada em {count} ordem(ns) de serviço. Para excluir, primeiro remova ou altere a assinatura nas ordens de serviço.', 'warning')
+            conn.close()
+            return redirect(url_for('configuracoes.index'))
+        
         cursor.execute('DELETE FROM assinaturas WHERE id = %s', (id,))
         conn.commit()
         conn.close()

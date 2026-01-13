@@ -24,19 +24,6 @@
                            placeholder="0.00">
                 </div>
             </div>
-            <div class="row">
-                <div class="col-md-6 mb-3">
-                    <label for="local" class="form-label">Local (opcional)</label>
-                    <input type="text" class="form-control" id="local" name="local" 
-                           value="{{ servico.local if servico and servico.local else '' }}" 
-                           placeholder="Ex: Sala, Cozinha, Área Externa...">
-                </div>
-                <div class="col-md-6 mb-3">
-                    <label for="data" class="form-label">Data (opcional)</label>
-                    <input type="date" class="form-control" id="data" name="data" 
-                           value="{{ servico.data if servico and servico.data else '' }}">
-                </div>
-            </div>
             <!-- Campo tempo_h mantido oculto para salvar no banco (usado nas ordens) -->
             <input type="hidden" name="tempo_h" value="0">
             <div class="d-flex gap-2">

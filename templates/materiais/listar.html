@@ -21,7 +21,6 @@
                         <th>Nome</th>
                         <th>Marca</th>
                         <th>Preço Unit.</th>
-                        <th>Data</th>
                         <th>Ações</th>
                     </tr>
                 </thead>
@@ -32,7 +31,6 @@
                         <td>{{ material.nome }}</td>
                         <td>{{ material.marca or '-' }}</td>
                         <td>R$ {{ "%.2f"|format(material.preco_unit) }}</td>
-                        <td>{{ material.data.strftime('%d/%m/%Y') if material.data else '-' }}</td>
                         <td>
                             <div class="d-flex gap-1">
                                 <a href="{{ url_for('materiais.editar', id=material.id) }}" 
@@ -50,7 +48,7 @@
                     </tr>
                     {% else %}
                     <tr>
-                        <td colspan="6" class="text-center">Nenhum material encontrado</td>
+                        <td colspan="5" class="text-center">Nenhum material encontrado</td>
                     </tr>
                     {% endfor %}
                 </tbody>
