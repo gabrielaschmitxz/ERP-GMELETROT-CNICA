@@ -706,22 +706,27 @@ class OrderPDFGenerator:
         for i, material in enumerate(order_data['materiais'], 1):
             nome_completo = f"{material['nome']} - {material['marca']}" if material.get('marca') else material['nome']
             
+            # Calcular preço unitário final (com adicional) a partir do total
+            # O total já inclui o adicional, então dividimos pelo qtd para obter o preço unitário final
+            qtd_material = material.get('qtd', 1)
+            preco_unit_final = material['total'] / qtd_material if qtd_material > 0 else material['total']
+            
             if tem_data:
                 data_material = material.get('data', '') or ''
                 materials_data.append([
                     str(i),
                     Paragraph(nome_completo, self.styles['CustomNormal']),
                     data_material,
-                    str(material['qtd']),
-                    f"R$ {material['preco_unit']:.2f}",
+                    str(qtd_material),
+                    f"R$ {preco_unit_final:.2f}",
                     f"R$ {material['total']:.2f}"
                 ])
             else:
                 materials_data.append([
                     str(i),
                     Paragraph(nome_completo, self.styles['CustomNormal']),
-                    str(material['qtd']),
-                    f"R$ {material['preco_unit']:.2f}",
+                    str(qtd_material),
+                    f"R$ {preco_unit_final:.2f}",
                     f"R$ {material['total']:.2f}"
                 ])
             total_materiais += material['total']

@@ -72,8 +72,16 @@
     <div class="col-md-4">
         <div class="card text-center">
             <div class="card-body">
-                <h5 class="card-title"><i class="bi bi-receipt text-success"></i> Ticket Médio por O.S</h5>
-                <h2 class="text-success">R$ {{ "%.2f"|format(stats.ticket_medio) }}</h2>
+                <h5 class="card-title"><i class="bi bi-box-seam text-primary"></i> Material Bruto</h5>
+                <h2 class="text-primary">R$ {{ "%.2f"|format(stats.material_bruto) }}</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card text-center">
+            <div class="card-body">
+                <h5 class="card-title"><i class="bi bi-graph-up-arrow text-success"></i> Material Lucro</h5>
+                <h2 class="text-success">R$ {{ "%.2f"|format(stats.material_lucro) }}</h2>
             </div>
         </div>
     </div>
@@ -151,13 +159,14 @@
     
     function atualizarCards(stats) {
         var cards = document.querySelectorAll('#dashboardCards .col-md-4');
-        if (cards.length >= 6) {
+        if (cards.length >= 7) {
             cards[0].querySelector('h2').textContent = stats.clientes;
             cards[1].querySelector('h2').textContent = stats.ordens_servico;
             cards[2].querySelector('h2').textContent = 'R$ ' + stats.total_faturado.toFixed(2);
             cards[3].querySelector('h2').textContent = 'R$ ' + stats.total_frete_deslocamento.toFixed(2);
             cards[4].querySelector('h2').textContent = 'R$ ' + stats.pagamentos_em_aberto.toFixed(2);
-            cards[5].querySelector('h2').textContent = 'R$ ' + stats.ticket_medio.toFixed(2);
+            cards[5].querySelector('h2').textContent = 'R$ ' + (stats.material_bruto || 0).toFixed(2);
+            cards[6].querySelector('h2').textContent = 'R$ ' + (stats.material_lucro || 0).toFixed(2);
         }
     }
     

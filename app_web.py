@@ -155,7 +155,7 @@ def dashboard():
         print(f"[ERROR] Erro ao carregar dashboard: {e}") # Adicionar log de erro
         return render_template('dashboard.html', stats={'clientes': 0, 'ordens_servico': 0, 'total_faturado': 0,
                                                           'total_frete_deslocamento': 0, 'pagamentos_em_aberto': 0,
-                                                          'ticket_medio': 0, 'status_counts': {}})
+                                                          'material_bruto': 0, 'material_lucro': 0, 'status_counts': {}})
 
 def get_dashboard_stats(cursor, periodo_dias=None):
     """Função auxiliar para buscar estatísticas do dashboard com filtro opcional de período"""
@@ -198,11 +198,49 @@ def get_dashboard_stats(cursor, periodo_dias=None):
     cursor.execute(f"SELECT COALESCE(SUM(total), 0) FROM ordens_servico WHERE status = 'Aguardando Pagamento' {date_filter}", params)
     pagamentos_em_aberto = cursor.fetchone()[0] or 0
     
-    # Ticket médio por O.S
-    if total_os > 0:
-        ticket_medio = total_faturado / total_os
+    # Material Bruto: soma de todos os valores totais de materiais cobrados
+    # JOIN com ordens_servico para aplicar filtro de data
+    if date_filter:
+        # Construir filtro para a tabela ordens_servico no JOIN
+        if 'DATE_TRUNC' in date_filter:
+            cursor.execute("""
+                SELECT COALESCE(SUM(im.valor_total), 0) 
+                FROM itens_material im
+                INNER JOIN ordens_servico os ON im.ordem_id = os.id
+                WHERE os.data >= DATE_TRUNC('year', CURRENT_DATE)
+            """)
+        else:
+            # Para filtro de dias específicos, usar o mesmo parâmetro
+            cursor.execute("""
+                SELECT COALESCE(SUM(im.valor_total), 0) 
+                FROM itens_material im
+                INNER JOIN ordens_servico os ON im.ordem_id = os.id
+                WHERE os.data >= %s
+            """, params)
     else:
-        ticket_medio = 0
+        cursor.execute("SELECT COALESCE(SUM(valor_total), 0) FROM itens_material")
+    material_bruto = cursor.fetchone()[0] or 0
+    
+    # Material Lucro: soma apenas do adicional (diferença entre valor_total e valor_base)
+    # Lucro = valor_total - (valor_unit * qtd)
+    if date_filter:
+        if 'DATE_TRUNC' in date_filter:
+            cursor.execute("""
+                SELECT COALESCE(SUM(im.valor_total - (im.valor_unit * im.qtd)), 0) 
+                FROM itens_material im
+                INNER JOIN ordens_servico os ON im.ordem_id = os.id
+                WHERE os.data >= DATE_TRUNC('year', CURRENT_DATE)
+            """)
+        else:
+            cursor.execute("""
+                SELECT COALESCE(SUM(im.valor_total - (im.valor_unit * im.qtd)), 0) 
+                FROM itens_material im
+                INNER JOIN ordens_servico os ON im.ordem_id = os.id
+                WHERE os.data >= %s
+            """, params)
+    else:
+        cursor.execute("SELECT COALESCE(SUM(valor_total - (valor_unit * qtd)), 0) FROM itens_material")
+    material_lucro = cursor.fetchone()[0] or 0
     
     # Status de Operação com filtro de período
     cursor.execute(f"SELECT status, COUNT(*) FROM ordens_servico WHERE 1=1 {date_filter} GROUP BY status", params)
@@ -215,7 +253,8 @@ def get_dashboard_stats(cursor, periodo_dias=None):
         'total_faturado': float(total_faturado),
         'total_frete_deslocamento': float(total_frete_deslocamento),
         'pagamentos_em_aberto': float(pagamentos_em_aberto),
-        'ticket_medio': float(ticket_medio),
+        'material_bruto': float(material_bruto),
+        'material_lucro': float(material_lucro),
         'status_counts': status_counts
     }
 

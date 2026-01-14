@@ -388,6 +388,11 @@
                     <input type="number" class="form-control" id="material_preco" step="0.01" min="0" value="0">
                 </div>
                 <div class="mb-3">
+                    <label for="material_adicional" class="form-label">Adicional (%)</label>
+                    <input type="number" class="form-control" id="material_adicional" step="0.01" min="0" value="0" placeholder="0">
+                    <small class="form-text text-muted">Percentual adicional aplicado ao preço do material</small>
+                </div>
+                <div class="mb-3">
                     <label for="material_data" class="form-label">Data</label>
                     <input type="date" class="form-control" id="material_data">
                 </div>
@@ -922,6 +927,7 @@ document.getElementById('btnAddMaterial').addEventListener('click', function() {
     if (materialSelect) materialSelect.value = '';
     document.getElementById('material_qtd').value = '1';
     document.getElementById('material_preco').value = '0';
+    document.getElementById('material_adicional').value = '0';
     
     // Atualizar título do modal
     document.querySelector('#modalMaterial .modal-title').textContent = 'Adicionar Material';
@@ -943,14 +949,20 @@ document.getElementById('btnSalvarMaterial').addEventListener('click', function(
     
     const qtd = parseInt(document.getElementById('material_qtd').value) || 1;
     const precoUnit = parseFloat(document.getElementById('material_preco').value) || 0;
+    const adicional = parseFloat(document.getElementById('material_adicional').value) || 0;
     const materialData = document.getElementById('material_data').value || null;
+    
+    // Calcular preço com adicional: preco_unit * (1 + adicional/100)
+    const precoComAdicional = precoUnit * (1 + adicional / 100);
+    const total = precoComAdicional * qtd;
     
     const material = {
         id: parseInt(materialId),
         nome: materialNome,
         preco_unit: precoUnit,
+        adicional: adicional,
         qtd: qtd,
-        total: precoUnit * qtd,
+        total: total,
         data: materialData
     };
     
@@ -971,6 +983,7 @@ document.getElementById('btnSalvarMaterial').addEventListener('click', function(
     document.getElementById('material_select').value = '';
     document.getElementById('material_qtd').value = '1';
     document.getElementById('material_preco').value = '0';
+    document.getElementById('material_adicional').value = '0';
     document.getElementById('material_data').value = '';
 });
 
@@ -1243,6 +1256,7 @@ function editarMaterial(index) {
     document.getElementById('material_search').value = material.nome;
     document.getElementById('material_qtd').value = material.qtd || 1;
     document.getElementById('material_preco').value = material.preco_unit.toFixed(2);
+    document.getElementById('material_adicional').value = (material.adicional || 0).toFixed(2);
     document.getElementById('material_data').value = material.data || '';
     
     // Atualizar título do modal
@@ -1471,6 +1485,7 @@ document.getElementById('modalMaterial').addEventListener('hidden.bs.modal', fun
     document.getElementById('material_select').value = '';
     document.getElementById('material_qtd').value = '1';
     document.getElementById('material_preco').value = '0';
+    document.getElementById('material_adicional').value = '0';
     document.getElementById('material_data').value = '';
     document.querySelector('#modalMaterial .modal-title').textContent = 'Adicionar Material';
     document.getElementById('btnSalvarMaterial').textContent = 'Salvar';

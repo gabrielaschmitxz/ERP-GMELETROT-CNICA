@@ -514,12 +514,28 @@ def editar(id):
             
         materiais_js = []
         for m in db_materiais:
+            # Calcular adicional a partir dos valores salvos
+            # Se total != preco_unit * qtd, então há um adicional aplicado
+            preco_unit = float(m['valor_unit'])
+            qtd = m['qtd']
+            total = float(m['valor_total'])
+            
+            # Calcular adicional: preco_com_adicional = total / qtd
+            # adicional = ((preco_com_adicional / preco_unit) - 1) * 100
+            adicional = 0.0
+            if preco_unit > 0 and qtd > 0:
+                preco_com_adicional = total / qtd
+                adicional = ((preco_com_adicional / preco_unit) - 1) * 100
+                # Arredondar para evitar problemas de precisão
+                adicional = round(adicional, 2)
+            
             materiais_js.append({
                 'id': m['material_id'],
                 'nome': m['descricao'].split(' - ')[0],
-                'preco_unit': float(m['valor_unit']),
-                'qtd': m['qtd'],
-                'total': float(m['valor_total']),
+                'preco_unit': preco_unit,
+                'adicional': adicional,
+                'qtd': qtd,
+                'total': total,
                 'data': m['data'].strftime('%Y-%m-%d') if m.get('data') else None
             })
             
