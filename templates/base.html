@@ -36,6 +36,10 @@
             margin: 5px 0;
             white-space: nowrap;
         }
+        .sidebar .nav-link.allow-wrap {
+            white-space: normal;
+            line-height: 1.4;
+        }
         .sidebar .nav-link:hover {
             background-color: var(--secondary-color);
             color: white;
@@ -241,8 +245,8 @@
                     <a class="nav-link" href="{{ url_for('servicos.listar') }}">
                         <i class="bi bi-gear"></i> <span>Serviços</span>
                     </a>
-                    <a class="nav-link" href="{{ url_for('configuracoes.index') }}">
-                        <i class="bi bi-sliders"></i> <span class="d-none d-lg-inline">Formas de Pagamento / Impostos / BDI</span>
+                    <a class="nav-link allow-wrap" href="{{ url_for('configuracoes.index') }}">
+                        <i class="bi bi-sliders"></i> <span class="d-none d-lg-inline">Formas Pagamento<br/>/ Impostos / BDI</span>
                         <span class="d-lg-none">Pagamento / Impostos / BDI</span>
                     </a>
                     <a class="nav-link" href="{{ url_for('assinaturas.index') }}">

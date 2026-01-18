@@ -261,7 +261,17 @@ class OrderPDFGenerator:
             conn.close()
             
             if cliente:
-                # Criar tabela com duas colunas: campos e dados
+                # Criar estilo para dados do cliente (permite quebra de linha)
+                client_data_style = ParagraphStyle(
+                    name='ClientData',
+                    parent=self.styles['Normal'],
+                    fontSize=10,
+                    fontName='Helvetica',
+                    alignment=TA_LEFT,
+                    leading=12
+                )
+                
+                # Criar lista de dados do cliente, filtrando campos vazios
                 client_data = [
                     # Cabeçalho azul
                     [Paragraph("<b>Cliente</b>", ParagraphStyle(
@@ -270,16 +280,73 @@ class OrderPDFGenerator:
                         fontSize=12,
                         textColor=colors.white,
                         alignment=TA_CENTER
-                    )), ''],
-                    # Dados do cliente em duas colunas
-                    ["Nome/Razão Social:", cliente[0] or ""],
-                    ["CPF/CNPJ:", formatar_cpf_cnpj(cliente[1]) if cliente[1] else ""],
-                    ["Endereço:", cliente[2] or ""],
-                    ["Telefone:", formatar_telefone(cliente[3]) if cliente[3] else ""],
-                    ["E-mail:", cliente[4] or ""]
+                    )), '']
                 ]
                 
-                client_table = Table(client_data, colWidths=[6*cm, 10*cm])
+                # Lista de labels para calcular o tamanho necessário
+                labels = []
+                
+                # Adicionar apenas campos preenchidos
+                if cliente[0]:  # Nome/Razão Social
+                    label = "Nome/Razão Social:"
+                    labels.append(label)
+                    client_data.append([
+                        label, 
+                        Paragraph(cliente[0] or "", client_data_style)
+                    ])
+                
+                if cliente[1]:  # CPF/CNPJ
+                    label = "CPF/CNPJ:"
+                    labels.append(label)
+                    client_data.append([
+                        label, 
+                        Paragraph(formatar_cpf_cnpj(cliente[1]), client_data_style)
+                    ])
+                
+                if cliente[2]:  # Endereço
+                    label = "Endereço:"
+                    labels.append(label)
+                    client_data.append([
+                        label, 
+                        Paragraph(cliente[2] or "", client_data_style)
+                    ])
+                
+                if cliente[3]:  # Telefone
+                    label = "Telefone:"
+                    labels.append(label)
+                    client_data.append([
+                        label, 
+                        Paragraph(formatar_telefone(cliente[3]), client_data_style)
+                    ])
+                
+                if cliente[4]:  # E-mail
+                    label = "E-mail:"
+                    labels.append(label)
+                    client_data.append([
+                        label, 
+                        Paragraph(cliente[4] or "", client_data_style)
+                    ])
+                
+                # Calcular largura da primeira coluna baseada no maior label
+                # Usar largura total de 16.5cm para alinhar com outras tabelas (impostos, BDI)
+                # Largura útil da página: ~16.8cm (A4 com margens de 2.1cm)
+                table_total_width = 16.5*cm  # Mesma largura das tabelas de impostos e BDI
+                if labels:
+                    # Estimar largura necessária (fonte Helvetica-Bold 10pt)
+                    # Aproximadamente 0.2cm por caractere para fonte bold (mais preciso)
+                    max_label_width = max(len(label) for label in labels) * 0.2 * cm
+                    # Adicionar um pouco de espaço extra (0.15cm) para não grudar na borda
+                    first_col_width = max_label_width + 0.15*cm
+                    # Garantir mínimo de 4cm e máximo de 5.5cm
+                    first_col_width = max(4*cm, min(5.5*cm, first_col_width))
+                else:
+                    first_col_width = 4.5*cm
+                
+                # Segunda coluna recebe o restante - garantir que soma seja exatamente table_total_width
+                second_col_width = table_total_width - first_col_width
+                
+                # Garantir largura total para alinhamento com outras tabelas
+                client_table = Table(client_data, colWidths=[first_col_width, second_col_width])
                 client_table.setStyle(TableStyle([
                     # Cabeçalho azul
                     ('SPAN', (0, 0), (1, 0)),
@@ -781,7 +848,7 @@ class OrderPDFGenerator:
             for i, imposto in enumerate(impostos, 1):
                 impostos_data.append([
                     str(i),
-                    imposto['descricao'],
+                    Paragraph(imposto['descricao'], self.styles['CustomNormal']),
                     f"R$ {imposto['valor']:.2f}"
                 ])
                 total_impostos += imposto['valor']
@@ -820,7 +887,11 @@ class OrderPDFGenerator:
             total_bdi = 0.0
             
             for i, bdi_item in enumerate(bdi_list, 1):
-                bdi_data.append([str(i), bdi_item['descricao'], f"R$ {bdi_item['valor']:.2f}"])
+                bdi_data.append([
+                    str(i), 
+                    Paragraph(bdi_item['descricao'], self.styles['CustomNormal']), 
+                    f"R$ {bdi_item['valor']:.2f}"
+                ])
                 total_bdi += bdi_item['valor']
 
             bdi_data.append(['', 'Total BDI', f"R$ {total_bdi:.2f}"])
@@ -1239,29 +1310,111 @@ class OrderPDFGenerator:
         """Criar seção de dados do cliente"""
         elements = []
         
-        title_style = self.styles['CustomHeading2']
-        title_style.alignment = TA_LEFT
-        elements.append(Paragraph("Dados do Cliente", title_style))
+        # Criar estilo para dados do cliente (permite quebra de linha)
+        client_data_style = ParagraphStyle(
+            name='ClientData',
+            parent=self.styles['Normal'],
+            fontSize=10,
+            fontName='Helvetica',
+            alignment=TA_LEFT,
+            leading=12
+        )
         
+        # Criar lista de dados do cliente, filtrando campos vazios
+        # Cabeçalho azul igual ao relatório normal
         client_data = [
-            ["Nome/Razão Social:", cliente['nome']],
-            ["CNPJ/CPF:", formatar_cpf_cnpj(cliente.get('cnpj_cpf', '')) or '-'],
-            ["Endereço:", cliente.get('endereco', '') or '-'],
-            ["Telefone:", formatar_telefone(cliente.get('telefone', '')) or '-'],
-            ["E-mail:", cliente.get('email', '') or '-']
+            # Cabeçalho azul
+            [Paragraph("<b>Dados do Cliente</b>", ParagraphStyle(
+                name='ClientHeader',
+                parent=self.styles['Normal'],
+                fontSize=12,
+                textColor=colors.white,
+                alignment=TA_CENTER
+            )), '']
         ]
+        labels = []
         
-        client_table = Table(client_data, colWidths=[6*cm, 10*cm])
+        # Adicionar apenas campos preenchidos
+        if cliente.get('nome'):
+            label = "Nome/Razão Social:"
+            labels.append(label)
+            client_data.append([
+                label, 
+                Paragraph(cliente['nome'], client_data_style)
+            ])
+        
+        if cliente.get('cnpj_cpf'):
+            label = "CNPJ/CPF:"
+            labels.append(label)
+            client_data.append([
+                label, 
+                Paragraph(formatar_cpf_cnpj(cliente.get('cnpj_cpf', '')), client_data_style)
+            ])
+        
+        if cliente.get('endereco'):
+            label = "Endereço:"
+            labels.append(label)
+            client_data.append([
+                label, 
+                Paragraph(cliente.get('endereco', ''), client_data_style)
+            ])
+        
+        if cliente.get('telefone'):
+            label = "Telefone:"
+            labels.append(label)
+            client_data.append([
+                label, 
+                Paragraph(formatar_telefone(cliente.get('telefone', '')), client_data_style)
+            ])
+        
+        if cliente.get('email'):
+            label = "E-mail:"
+            labels.append(label)
+            client_data.append([
+                label, 
+                Paragraph(cliente.get('email', ''), client_data_style)
+            ])
+        
+        # Calcular largura da primeira coluna baseada no maior label
+        # Usar largura total de 15.8cm para alinhar com tabelas de serviços (sem data)
+        # Largura útil da página: ~16.8cm (A4 com margens de 2.1cm)
+        table_total_width = 15.8*cm  # Mesma largura das tabelas de serviços sem data
+        if labels:
+            # Estimar largura necessária (fonte Helvetica-Bold 10pt)
+            # Aproximadamente 0.2cm por caractere para fonte bold (mais preciso)
+            max_label_width = max(len(label) for label in labels) * 0.2 * cm
+            # Adicionar um pouco de espaço extra (0.15cm) para não grudar na borda
+            first_col_width = max_label_width + 0.15*cm
+            # Garantir mínimo de 4cm e máximo de 5.5cm
+            first_col_width = max(4*cm, min(5.5*cm, first_col_width))
+        else:
+            first_col_width = 4.5*cm
+        
+        # Segunda coluna recebe o restante - garantir que soma seja exatamente table_total_width
+        second_col_width = table_total_width - first_col_width
+        
+        # Garantir largura total para alinhamento com outras tabelas
+        client_table = Table(client_data, colWidths=[first_col_width, second_col_width])
         client_table.setStyle(TableStyle([
-            ('ALIGN', (0, 0), (0, -1), 'LEFT'),
-            ('ALIGN', (1, 0), (1, -1), 'LEFT'),
-            ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
-            ('FONTNAME', (1, 0), (1, -1), 'Helvetica'),
-            ('FONTSIZE', (0, 0), (-1, -1), 10),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
-            ('TOPPADDING', (0, 0), (-1, -1), 4),
+            # Cabeçalho azul
+            ('SPAN', (0, 0), (1, 0)),
+            ('BACKGROUND', (0, 0), (1, 0), self.dark_blue),
+            ('ALIGN', (0, 0), (1, 0), 'CENTER'),
+            ('FONTNAME', (0, 0), (1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (1, 0), 12),
+            ('BOTTOMPADDING', (0, 0), (1, 0), 8),
+            ('TOPPADDING', (0, 0), (1, 0), 8),
+            # Dados do cliente
+            ('ALIGN', (0, 1), (0, -1), 'LEFT'),
+            ('ALIGN', (1, 1), (1, -1), 'LEFT'),
+            ('FONTNAME', (0, 1), (0, -1), 'Helvetica-Bold'),
+            ('FONTNAME', (1, 1), (1, -1), 'Helvetica'),
+            ('FONTSIZE', (0, 1), (-1, -1), 10),
+            ('BOTTOMPADDING', (0, 1), (-1, -1), 6),
+            ('TOPPADDING', (0, 1), (-1, -1), 4),
+            # Bordas
             ('BOX', (0, 0), (-1, -1), 1, colors.black),
-            ('INNERGRID', (0, 0), (-1, -1), 0.5, colors.grey),
+            ('INNERGRID', (0, 1), (-1, -1), 0.5, colors.grey),
         ]))
         
         elements.append(KeepTogether(client_table))
