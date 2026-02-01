@@ -44,12 +44,29 @@ def listar():
         conn = get_db_connection()
         cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
         
+        # Adicionar coluna ativo se não existir (migração)
+        try:
+            cursor.execute('''
+                DO $$ 
+                BEGIN
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns 
+                        WHERE table_name='clientes' AND column_name='ativo'
+                    ) THEN
+                        ALTER TABLE clientes ADD COLUMN ativo BOOLEAN DEFAULT true;
+                    END IF;
+                END $$;
+            ''')
+            conn.commit()
+        except Exception as e:
+            print(f"Erro ao adicionar coluna ativo: {e}")
+        
         search = request.args.get('search', '')
         query = "SELECT * FROM clientes"
         params = []
         
         if search:
-            query += " WHERE nome ILIKE %s OR cnpj_cpf ILIKE %s"
+            query += " WHERE (nome ILIKE %s OR cnpj_cpf ILIKE %s)"
             params.extend([f'%{search}%', f'%{search}%'])
         
         query += " ORDER BY nome"
@@ -181,7 +198,7 @@ def excluir(id):
         count = cursor.fetchone()[0]
         
         if count > 0:
-            flash(f'Não é possível excluir o cliente pois ele possui {count} ordem(ns) de serviço associada(s).', 'danger')
+            flash(f'Não é possível excluir o cliente pois ele possui {count} ordem(ns) de serviço associada(s). Use o botão de inativar para ocultá-lo de novas ordens.', 'warning')
             conn.close()
             return redirect(url_for('clientes.listar'))
         
@@ -194,6 +211,43 @@ def excluir(id):
     except Exception as e:
         flash(f'Erro ao excluir cliente: {e}', 'danger')
     
+    return redirect(url_for('clientes.listar'))
+
+@bp.route('/toggle_ativo/<int:id>', methods=['POST'])
+@login_required
+def toggle_ativo(id):
+    """Alterna o status ativo/inativo de um cliente"""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # Adicionar coluna ativo se não existir (migração)
+        try:
+            cursor.execute('''
+                DO $$ 
+                BEGIN
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns 
+                        WHERE table_name='clientes' AND column_name='ativo'
+                    ) THEN
+                        ALTER TABLE clientes ADD COLUMN ativo BOOLEAN DEFAULT true;
+                    END IF;
+                END $$;
+            ''')
+            conn.commit()
+        except Exception as e:
+            print(f"Erro ao adicionar coluna ativo: {e}")
+        
+        cursor.execute("SELECT ativo FROM clientes WHERE id = %s", (id,))
+        result = cursor.fetchone()
+        if result:
+            novo_status = not result[0]
+            cursor.execute("UPDATE clientes SET ativo = %s WHERE id = %s", (novo_status, id))
+            conn.commit()
+            flash(f'Cliente {"ativado" if novo_status else "desativado"} com sucesso!', 'success')
+        conn.close()
+    except Exception as e:
+        flash(f'Erro ao alterar status: {e}', 'danger')
     return redirect(url_for('clientes.listar'))
 
 @bp.route('/api/buscar')
@@ -210,7 +264,7 @@ def api_buscar():
             search_pattern_any = f'%{search}%'
             cursor.execute('''
                 SELECT id, nome FROM clientes 
-                WHERE nome ILIKE %s OR cnpj_cpf ILIKE %s
+                WHERE ativo = true AND (nome ILIKE %s OR cnpj_cpf ILIKE %s)
                 ORDER BY 
                     CASE 
                         WHEN nome ILIKE %s THEN 1
@@ -220,7 +274,7 @@ def api_buscar():
                     nome
             ''', (search_pattern_any, search_pattern_any, search_pattern_start, search_pattern_any))
         else:
-            cursor.execute('SELECT id, nome FROM clientes ORDER BY nome')
+            cursor.execute('SELECT id, nome FROM clientes WHERE ativo = true ORDER BY nome')
         
         clientes = cursor.fetchall()
         conn.close()

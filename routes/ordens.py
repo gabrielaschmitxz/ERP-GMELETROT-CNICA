@@ -231,7 +231,7 @@ def nova():
         cursor.execute('SELECT id, nome FROM clientes ORDER BY nome')
         clientes = cursor.fetchall()
         
-        cursor.execute('SELECT id, nome, tipo, parcelas_max FROM formas_pagamento ORDER BY nome')
+        cursor.execute('SELECT id, nome, tipo, parcelas_max FROM formas_pagamento WHERE ativo = true ORDER BY nome')
         formas_pagamento = cursor.fetchall()
         
         # Adicionar coluna cargo se não existir (migração) - apenas uma vez
@@ -254,17 +254,17 @@ def nova():
         cursor.execute('SELECT id, nome, cargo, caminho_imagem, ativo, padrao FROM assinaturas WHERE ativo = true ORDER BY padrao DESC, nome')
         assinaturas = cursor.fetchall()
         
-        # Carregar listas para seleção (otimizado: apenas campos necessários)
-        cursor.execute('SELECT id, nome, preco_unit FROM servicos ORDER BY nome')
+        # Carregar listas para seleção (otimizado: apenas campos necessários) - apenas ativos
+        cursor.execute('SELECT id, nome, preco_unit FROM servicos WHERE ativo = true ORDER BY nome')
         servicos = cursor.fetchall()
         
-        cursor.execute('SELECT id, nome, marca, preco_unit FROM materiais ORDER BY nome')
+        cursor.execute('SELECT id, nome, marca, preco_unit FROM materiais WHERE ativo = true ORDER BY nome')
         materiais = cursor.fetchall()
         
-        cursor.execute("SELECT id, descricao, valor FROM impostos_bdi WHERE tipo = 'imposto' ORDER BY descricao")
+        cursor.execute("SELECT id, descricao, valor FROM impostos_bdi WHERE tipo = 'imposto' AND ativo = true ORDER BY descricao")
         impostos = cursor.fetchall()
         
-        cursor.execute("SELECT id, descricao, valor FROM impostos_bdi WHERE tipo = 'bdi' ORDER BY descricao")
+        cursor.execute("SELECT id, descricao, valor FROM impostos_bdi WHERE tipo = 'bdi' AND ativo = true ORDER BY descricao")
         bdi_list = cursor.fetchall()
         
         conn.close()
@@ -548,9 +548,9 @@ def editar(id):
             })
             
         # Carregar listas auxiliares (otimizado: apenas campos necessários)
-        cursor.execute('SELECT id, nome FROM clientes ORDER BY nome')
+        cursor.execute('SELECT id, nome FROM clientes WHERE ativo = true ORDER BY nome')
         clientes = cursor.fetchall()
-        cursor.execute('SELECT id, nome, tipo, parcelas_max FROM formas_pagamento ORDER BY nome')
+        cursor.execute('SELECT id, nome, tipo, parcelas_max FROM formas_pagamento WHERE ativo = true ORDER BY nome')
         formas_pagamento = cursor.fetchall()
         
         # Adicionar coluna cargo se não existir (migração) - apenas uma vez
@@ -572,13 +572,13 @@ def editar(id):
         
         cursor.execute('SELECT id, nome, cargo, caminho_imagem, ativo, padrao FROM assinaturas WHERE ativo = true ORDER BY padrao DESC, nome')
         assinaturas = cursor.fetchall()
-        cursor.execute('SELECT id, nome, preco_unit FROM servicos ORDER BY nome')
+        cursor.execute('SELECT id, nome, preco_unit FROM servicos WHERE ativo = true ORDER BY nome')
         servicos_list = cursor.fetchall()
-        cursor.execute('SELECT id, nome, marca, preco_unit FROM materiais ORDER BY nome')
+        cursor.execute('SELECT id, nome, marca, preco_unit FROM materiais WHERE ativo = true ORDER BY nome')
         materiais_list = cursor.fetchall()
-        cursor.execute("SELECT id, descricao, valor FROM impostos_bdi WHERE tipo = 'imposto' ORDER BY descricao")
+        cursor.execute("SELECT id, descricao, valor FROM impostos_bdi WHERE tipo = 'imposto' AND ativo = true ORDER BY descricao")
         impostos = cursor.fetchall()
-        cursor.execute("SELECT id, descricao, valor FROM impostos_bdi WHERE tipo = 'bdi' ORDER BY descricao")
+        cursor.execute("SELECT id, descricao, valor FROM impostos_bdi WHERE tipo = 'bdi' AND ativo = true ORDER BY descricao")
         bdi_list = cursor.fetchall()
         
         conn.close()

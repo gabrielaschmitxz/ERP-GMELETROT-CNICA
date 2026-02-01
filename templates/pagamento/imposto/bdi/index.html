@@ -57,6 +57,7 @@
                                     <tr>
                                         <th>Nome</th>
                                         <th>Qntd.</th>
+                                        <th>Status</th>
                                         <th>Ações</th>
                                     </tr>
                                 </thead>
@@ -70,6 +71,22 @@
                                             {% else %}
                                                 -
                                             {% endif %}
+                                        </td>
+                                        <td>
+                                            <div class="d-flex align-items-center gap-2">
+                                                {% if forma.ativo %}
+                                                    <span class="badge bg-success">Ativo</span>
+                                                {% else %}
+                                                    <span class="badge bg-secondary">Inativo</span>
+                                                {% endif %}
+                                                <form method="POST" action="{{ url_for('configuracoes.toggle_ativo_pagamento', id=forma.id) }}"
+                                                      class="d-inline" onsubmit="return confirm('Tem certeza que deseja {{ 'desativar' if forma.ativo else 'ativar' }} esta forma de pagamento?');">
+                                                    <button type="submit" class="btn btn-sm btn-{{ 'secondary' if forma.ativo else 'success' }}" 
+                                                            title="{{ 'Desativar' if forma.ativo else 'Ativar' }}">
+                                                        <i class="bi bi-{{ 'x-circle' if forma.ativo else 'check-circle' }}"></i>
+                                                    </button>
+                                                </form>
+                                            </div>
                                         </td>
                                         <td>
                                             <button type="button" class="btn btn-sm btn-primary btn-editar-forma" 
@@ -126,6 +143,7 @@
                                 <thead>
                                     <tr>
                                         <th>Nome</th>
+                                        <th>Status</th>
                                         <th>Ações</th>
                                     </tr>
                                 </thead>
@@ -133,6 +151,22 @@
                                     {% for imposto in impostos %}
                                     <tr>
                                         <td>{{ imposto.descricao }}</td>
+                                        <td>
+                                            <div class="d-flex align-items-center gap-2">
+                                                {% if imposto.ativo %}
+                                                    <span class="badge bg-success">Ativo</span>
+                                                {% else %}
+                                                    <span class="badge bg-secondary">Inativo</span>
+                                                {% endif %}
+                                                <form method="POST" action="{{ url_for('configuracoes.toggle_ativo_imposto', id=imposto.id) }}"
+                                                      class="d-inline" onsubmit="return confirm('Tem certeza que deseja {{ 'desativar' if imposto.ativo else 'ativar' }} este imposto?');">
+                                                    <button type="submit" class="btn btn-sm btn-{{ 'secondary' if imposto.ativo else 'success' }}" 
+                                                            title="{{ 'Desativar' if imposto.ativo else 'Ativar' }}">
+                                                        <i class="bi bi-{{ 'x-circle' if imposto.ativo else 'check-circle' }}"></i>
+                                                    </button>
+                                                </form>
+                                            </div>
+                                        </td>
                                         <td>
                                             <button type="button" class="btn btn-sm btn-primary btn-editar-imposto" 
                                                     data-id="{{ imposto.id }}" 
@@ -187,6 +221,7 @@
                                 <thead>
                                     <tr>
                                         <th>Nome</th>
+                                        <th>Status</th>
                                         <th>Ações</th>
                                     </tr>
                                 </thead>
@@ -194,6 +229,22 @@
                                     {% for item in bdi_itens %}
                                     <tr>
                                         <td>{{ item.descricao }}</td>
+                                        <td>
+                                            <div class="d-flex align-items-center gap-2">
+                                                {% if item.ativo %}
+                                                    <span class="badge bg-success">Ativo</span>
+                                                {% else %}
+                                                    <span class="badge bg-secondary">Inativo</span>
+                                                {% endif %}
+                                                <form method="POST" action="{{ url_for('configuracoes.toggle_ativo_bdi', id=item.id) }}"
+                                                      class="d-inline" onsubmit="return confirm('Tem certeza que deseja {{ 'desativar' if item.ativo else 'ativar' }} este BDI?');">
+                                                    <button type="submit" class="btn btn-sm btn-{{ 'secondary' if item.ativo else 'success' }}" 
+                                                            title="{{ 'Desativar' if item.ativo else 'Ativar' }}">
+                                                        <i class="bi bi-{{ 'x-circle' if item.ativo else 'check-circle' }}"></i>
+                                                    </button>
+                                                </form>
+                                            </div>
+                                        </td>
                                         <td>
                                             <button type="button" class="btn btn-sm btn-primary btn-editar-bdi" 
                                                     data-id="{{ item.id }}" 

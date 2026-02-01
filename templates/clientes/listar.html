@@ -33,6 +33,7 @@
                         <th>CNPJ/CPF</th>
                         <th>Telefone</th>
                         <th>Email</th>
+                        <th>Status</th>
                         <th>Ações</th>
                     </tr>
                 </thead>
@@ -44,6 +45,22 @@
                         <td>{{ formatar_cpf_cnpj(cliente.cnpj_cpf) if cliente.cnpj_cpf else '-' }}</td>
                         <td>{{ formatar_telefone(cliente.telefone) if cliente.telefone else '-' }}</td>
                         <td>{{ cliente.email or '-' }}</td>
+                        <td>
+                            <div class="d-flex align-items-center gap-2">
+                                {% if cliente.ativo %}
+                                    <span class="badge bg-success">Ativo</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">Inativo</span>
+                                {% endif %}
+                                <form method="POST" action="{{ url_for('clientes.toggle_ativo', id=cliente.id) }}" 
+                                      class="d-inline" onsubmit="return confirm('Tem certeza que deseja {{ 'desativar' if cliente.ativo else 'ativar' }} este cliente?');">
+                                    <button type="submit" class="btn btn-sm btn-{{ 'secondary' if cliente.ativo else 'success' }}" 
+                                            title="{{ 'Desativar' if cliente.ativo else 'Ativar' }}">
+                                        <i class="bi bi-{{ 'x-circle' if cliente.ativo else 'check-circle' }}"></i>
+                                    </button>
+                                </form>
+                            </div>
+                        </td>
                         <td>
                             <div class="d-flex gap-1">
                                 <a href="{{ url_for('clientes.editar', id=cliente.id) }}" 

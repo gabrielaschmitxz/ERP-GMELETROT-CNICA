@@ -13,6 +13,29 @@ def index():
         conn = get_db_connection()
         cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
         
+        # Adicionar coluna ativo se não existir (migração)
+        try:
+            cursor.execute('''
+                DO $$ 
+                BEGIN
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns 
+                        WHERE table_name='formas_pagamento' AND column_name='ativo'
+                    ) THEN
+                        ALTER TABLE formas_pagamento ADD COLUMN ativo BOOLEAN DEFAULT true;
+                    END IF;
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns 
+                        WHERE table_name='impostos_bdi' AND column_name='ativo'
+                    ) THEN
+                        ALTER TABLE impostos_bdi ADD COLUMN ativo BOOLEAN DEFAULT true;
+                    END IF;
+                END $$;
+            ''')
+            conn.commit()
+        except Exception as e:
+            print(f"Erro ao adicionar coluna ativo: {e}")
+        
         # Carregar formas de pagamento
         cursor.execute('SELECT * FROM formas_pagamento ORDER BY nome')
         formas = cursor.fetchall()
@@ -381,8 +404,8 @@ def excluir_pagamento(id):
         if count > 0:
             conn.close()
             if request.is_json:
-                return jsonify({'success': False, 'error': f'Não é possível excluir: esta forma de pagamento está sendo usada em {count} ordem(ns) de serviço!'}), 400
-            flash(f'Não é possível excluir: esta forma de pagamento está sendo usada em {count} ordem(ns) de serviço!', 'danger')
+                return jsonify({'success': False, 'error': f'Não é possível excluir: esta forma de pagamento está sendo usada em {count} ordem(ns) de serviço! Use o botão de inativar para ocultá-la de novas ordens.'}), 400
+            flash(f'Não é possível excluir: esta forma de pagamento está sendo usada em {count} ordem(ns) de serviço! Use o botão de inativar para ocultá-la de novas ordens.', 'warning')
             return redirect(url_for('configuracoes.index'))
         
         cursor.execute('DELETE FROM formas_pagamento WHERE id = %s', (id,))
@@ -399,6 +422,43 @@ def excluir_pagamento(id):
     
     if request.is_json:
         return jsonify({'success': False}), 500
+    return redirect(url_for('configuracoes.index'))
+
+@bp.route('/pagamento/toggle_ativo/<int:id>', methods=['POST'])
+@login_required
+def toggle_ativo_pagamento(id):
+    """Alterna o status ativo/inativo de uma forma de pagamento"""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # Adicionar coluna ativo se não existir (migração)
+        try:
+            cursor.execute('''
+                DO $$ 
+                BEGIN
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns 
+                        WHERE table_name='formas_pagamento' AND column_name='ativo'
+                    ) THEN
+                        ALTER TABLE formas_pagamento ADD COLUMN ativo BOOLEAN DEFAULT true;
+                    END IF;
+                END $$;
+            ''')
+            conn.commit()
+        except Exception as e:
+            print(f"Erro ao adicionar coluna ativo: {e}")
+        
+        cursor.execute("SELECT ativo FROM formas_pagamento WHERE id = %s", (id,))
+        result = cursor.fetchone()
+        if result:
+            novo_status = not result[0]
+            cursor.execute("UPDATE formas_pagamento SET ativo = %s WHERE id = %s", (novo_status, id))
+            conn.commit()
+            flash(f'Forma de pagamento {"ativada" if novo_status else "desativada"} com sucesso!', 'success')
+        conn.close()
+    except Exception as e:
+        flash(f'Erro ao alterar status: {e}', 'danger')
     return redirect(url_for('configuracoes.index'))
 
 @bp.route('/impostos/editar/<int:id>', methods=['POST'])
@@ -464,6 +524,24 @@ def excluir_imposto(id):
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
+        
+        # Verificar se está sendo usado em ordens de serviço
+        cursor.execute('''
+            SELECT COUNT(*) FROM adicionais a
+            JOIN ordens_servico os ON a.ordem_id = os.id
+            WHERE a.tipo = 'imposto' AND a.descricao = (
+                SELECT descricao FROM impostos_bdi WHERE id = %s
+            )
+        ''', (id,))
+        count = cursor.fetchone()[0]
+        
+        if count > 0:
+            conn.close()
+            if request.is_json:
+                return jsonify({'success': False, 'error': f'Não é possível excluir: este imposto está sendo usado em {count} ordem(ns) de serviço! Use o botão de inativar para ocultá-lo de novas ordens.'}), 400
+            flash(f'Não é possível excluir: este imposto está sendo usado em {count} ordem(ns) de serviço! Use o botão de inativar para ocultá-lo de novas ordens.', 'warning')
+            return redirect(url_for('configuracoes.index'))
+        
         cursor.execute('DELETE FROM impostos_bdi WHERE id = %s', (id,))
         conn.commit()
         conn.close()
@@ -478,6 +556,43 @@ def excluir_imposto(id):
     
     if request.is_json:
         return jsonify({'success': False}), 500
+    return redirect(url_for('configuracoes.index'))
+
+@bp.route('/impostos/toggle_ativo/<int:id>', methods=['POST'])
+@login_required
+def toggle_ativo_imposto(id):
+    """Alterna o status ativo/inativo de um imposto"""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # Adicionar coluna ativo se não existir (migração)
+        try:
+            cursor.execute('''
+                DO $$ 
+                BEGIN
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns 
+                        WHERE table_name='impostos_bdi' AND column_name='ativo'
+                    ) THEN
+                        ALTER TABLE impostos_bdi ADD COLUMN ativo BOOLEAN DEFAULT true;
+                    END IF;
+                END $$;
+            ''')
+            conn.commit()
+        except Exception as e:
+            print(f"Erro ao adicionar coluna ativo: {e}")
+        
+        cursor.execute("SELECT ativo FROM impostos_bdi WHERE id = %s", (id,))
+        result = cursor.fetchone()
+        if result:
+            novo_status = not result[0]
+            cursor.execute("UPDATE impostos_bdi SET ativo = %s WHERE id = %s", (novo_status, id))
+            conn.commit()
+            flash(f'Imposto {"ativado" if novo_status else "desativado"} com sucesso!', 'success')
+        conn.close()
+    except Exception as e:
+        flash(f'Erro ao alterar status: {e}', 'danger')
     return redirect(url_for('configuracoes.index'))
 
 @bp.route('/bdi/editar/<int:id>', methods=['POST'])
@@ -543,6 +658,24 @@ def excluir_bdi(id):
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
+        
+        # Verificar se está sendo usado em ordens de serviço
+        cursor.execute('''
+            SELECT COUNT(*) FROM adicionais a
+            JOIN ordens_servico os ON a.ordem_id = os.id
+            WHERE a.tipo = 'bdi' AND a.descricao = (
+                SELECT descricao FROM impostos_bdi WHERE id = %s
+            )
+        ''', (id,))
+        count = cursor.fetchone()[0]
+        
+        if count > 0:
+            conn.close()
+            if request.is_json:
+                return jsonify({'success': False, 'error': f'Não é possível excluir: este BDI está sendo usado em {count} ordem(ns) de serviço! Use o botão de inativar para ocultá-lo de novas ordens.'}), 400
+            flash(f'Não é possível excluir: este BDI está sendo usado em {count} ordem(ns) de serviço! Use o botão de inativar para ocultá-lo de novas ordens.', 'warning')
+            return redirect(url_for('configuracoes.index'))
+        
         cursor.execute('DELETE FROM impostos_bdi WHERE id = %s', (id,))
         conn.commit()
         conn.close()
@@ -557,4 +690,41 @@ def excluir_bdi(id):
     
     if request.is_json:
         return jsonify({'success': False}), 500
+    return redirect(url_for('configuracoes.index'))
+
+@bp.route('/bdi/toggle_ativo/<int:id>', methods=['POST'])
+@login_required
+def toggle_ativo_bdi(id):
+    """Alterna o status ativo/inativo de um BDI"""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # Adicionar coluna ativo se não existir (migração)
+        try:
+            cursor.execute('''
+                DO $$ 
+                BEGIN
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns 
+                        WHERE table_name='impostos_bdi' AND column_name='ativo'
+                    ) THEN
+                        ALTER TABLE impostos_bdi ADD COLUMN ativo BOOLEAN DEFAULT true;
+                    END IF;
+                END $$;
+            ''')
+            conn.commit()
+        except Exception as e:
+            print(f"Erro ao adicionar coluna ativo: {e}")
+        
+        cursor.execute("SELECT ativo FROM impostos_bdi WHERE id = %s", (id,))
+        result = cursor.fetchone()
+        if result:
+            novo_status = not result[0]
+            cursor.execute("UPDATE impostos_bdi SET ativo = %s WHERE id = %s", (novo_status, id))
+            conn.commit()
+            flash(f'BDI {"ativado" if novo_status else "desativado"} com sucesso!', 'success')
+        conn.close()
+    except Exception as e:
+        flash(f'Erro ao alterar status: {e}', 'danger')
     return redirect(url_for('configuracoes.index'))

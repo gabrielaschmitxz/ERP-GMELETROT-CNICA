@@ -14,7 +14,7 @@ def listar():
         conn = get_db_connection()
         cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
         
-        # Migração automática: adicionar colunas 'local' e 'data' se não existirem
+        # Migração automática: adicionar colunas 'local', 'data' e 'ativo' se não existirem
         cursor.execute('''
             DO $$ 
             BEGIN 
@@ -29,6 +29,12 @@ def listar():
                     WHERE table_name='servicos' AND column_name='data'
                 ) THEN
                     ALTER TABLE servicos ADD COLUMN data DATE;
+                END IF;
+                IF NOT EXISTS (
+                    SELECT 1 FROM information_schema.columns 
+                    WHERE table_name='servicos' AND column_name='ativo'
+                ) THEN
+                    ALTER TABLE servicos ADD COLUMN ativo BOOLEAN DEFAULT true;
                 END IF;
             END $$;
         ''')
@@ -218,13 +224,74 @@ def excluir(id):
     """Excluir serviço"""
     try:
         conn = get_db_connection()
-        cursor = conn.cursor()
+        cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+        
+        # Verificar se o serviço está sendo usado em alguma ordem e listar as ordens
+        cursor.execute('''
+            SELECT DISTINCT os.id, os.data, c.nome as cliente_nome
+            FROM itens_servico is_
+            JOIN ordens_servico os ON is_.ordem_id = os.id
+            LEFT JOIN clientes c ON os.cliente_id = c.id
+            WHERE is_.servico_id = %s
+            ORDER BY os.id
+        ''', (id,))
+        ordens = cursor.fetchall()
+        
+        if ordens:
+            # Buscar nome do serviço para a mensagem
+            cursor.execute('SELECT nome FROM servicos WHERE id = %s', (id,))
+            servico = cursor.fetchone()
+            nome_servico = servico['nome'] if servico else 'Serviço'
+            
+            # Não permitir exclusão, apenas inativação
+            flash(f'Não é possível excluir o serviço "{nome_servico}" pois ele está sendo usado em ordens de serviço. Use o botão de inativar para ocultá-lo de novas ordens.', 'warning')
+            conn.close()
+            return redirect(url_for('servicos.listar'))
+        
+        # Se não estiver sendo usado, pode excluir
         cursor.execute('DELETE FROM servicos WHERE id = %s', (id,))
         conn.commit()
         conn.close()
         flash('Serviço excluído com sucesso!', 'success')
     except Exception as e:
         flash(f'Erro ao excluir serviço: {e}', 'danger')
+    return redirect(url_for('servicos.listar'))
+
+@bp.route('/toggle_ativo/<int:id>', methods=['POST'])
+@login_required
+def toggle_ativo(id):
+    """Alterna o status ativo/inativo de um serviço"""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # Adicionar coluna ativo se não existir (migração)
+        try:
+            cursor.execute('''
+                DO $$ 
+                BEGIN
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns 
+                        WHERE table_name='servicos' AND column_name='ativo'
+                    ) THEN
+                        ALTER TABLE servicos ADD COLUMN ativo BOOLEAN DEFAULT true;
+                    END IF;
+                END $$;
+            ''')
+            conn.commit()
+        except Exception as e:
+            print(f"Erro ao adicionar coluna ativo: {e}")
+        
+        cursor.execute("SELECT ativo FROM servicos WHERE id = %s", (id,))
+        result = cursor.fetchone()
+        if result:
+            novo_status = not result[0]
+            cursor.execute("UPDATE servicos SET ativo = %s WHERE id = %s", (novo_status, id))
+            conn.commit()
+            flash(f'Serviço {"ativado" if novo_status else "desativado"} com sucesso!', 'success')
+        conn.close()
+    except Exception as e:
+        flash(f'Erro ao alterar status: {e}', 'danger')
     return redirect(url_for('servicos.listar'))
 
 @bp.route('/api/buscar')
@@ -265,7 +332,7 @@ def api_buscar():
             search_pattern_any = f'%{search}%'
             cursor.execute('''
                 SELECT id, nome, preco_unit, tempo_h, local, data FROM servicos 
-                WHERE nome ILIKE %s
+                WHERE ativo = true AND nome ILIKE %s
                 ORDER BY 
                     CASE 
                         WHEN nome ILIKE %s THEN 1
@@ -276,7 +343,7 @@ def api_buscar():
             print(f'[DEBUG] Busca de serviços: "{search}" - {cursor.rowcount} resultados')
         else:
             # Sem busca, retornar todos ordenados
-            cursor.execute('SELECT id, nome, preco_unit, tempo_h, local, data FROM servicos ORDER BY nome')
+            cursor.execute('SELECT id, nome, preco_unit, tempo_h, local, data FROM servicos WHERE ativo = true ORDER BY nome')
             print(f'[DEBUG] Listando todos os serviços - {cursor.rowcount} resultados')
         
         servicos = cursor.fetchall()

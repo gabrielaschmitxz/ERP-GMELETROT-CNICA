@@ -20,6 +20,7 @@
                         <th>ID</th>
                         <th>Nome</th>
                         <th>Preço Unit.</th>
+                        <th>Status</th>
                         <th>Ações</th>
                     </tr>
                 </thead>
@@ -29,6 +30,22 @@
                         <td>{{ servico.id }}</td>
                         <td>{{ servico.nome }}</td>
                         <td>R$ {{ "%.2f"|format(servico.preco_unit) }}</td>
+                        <td>
+                            <div class="d-flex align-items-center gap-2">
+                                {% if servico.ativo %}
+                                    <span class="badge bg-success">Ativo</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">Inativo</span>
+                                {% endif %}
+                                <form method="POST" action="{{ url_for('servicos.toggle_ativo', id=servico.id) }}" 
+                                      class="d-inline" onsubmit="return confirm('Tem certeza que deseja {{ 'desativar' if servico.ativo else 'ativar' }} este serviço?');">
+                                    <button type="submit" class="btn btn-sm btn-{{ 'secondary' if servico.ativo else 'success' }}" 
+                                            title="{{ 'Desativar' if servico.ativo else 'Ativar' }}">
+                                        <i class="bi bi-{{ 'x-circle' if servico.ativo else 'check-circle' }}"></i>
+                                    </button>
+                                </form>
+                            </div>
+                        </td>
                         <td>
                             <div class="d-flex gap-1">
                                 <a href="{{ url_for('servicos.editar', id=servico.id) }}" 

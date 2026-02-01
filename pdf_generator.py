@@ -268,7 +268,8 @@ class OrderPDFGenerator:
                     fontSize=10,
                     fontName='Helvetica',
                     alignment=TA_LEFT,
-                    leading=12
+                    leading=12,
+                    wordWrap='CJK'  # Permite quebra de palavra
                 )
                 
                 # Criar lista de dados do cliente, filtrando campos vazios
@@ -286,16 +287,22 @@ class OrderPDFGenerator:
                 # Lista de labels para calcular o tamanho necessário
                 labels = []
                 
-                # Adicionar apenas campos preenchidos
-                if cliente[0]:  # Nome/Razão Social
+                # Adicionar apenas campos preenchidos (verificar se não é None, não é string vazia, não é "-" e não é "None")
+                def is_valid_field(value):
+                    if value is None:
+                        return False
+                    value_str = str(value).strip()
+                    return value_str and value_str.lower() not in ['-', 'none', 'null', '']
+                
+                if is_valid_field(cliente[0]):  # Nome/Razão Social
                     label = "Nome/Razão Social:"
                     labels.append(label)
                     client_data.append([
                         label, 
-                        Paragraph(cliente[0] or "", client_data_style)
+                        Paragraph(str(cliente[0]).strip(), client_data_style)
                     ])
                 
-                if cliente[1]:  # CPF/CNPJ
+                if is_valid_field(cliente[1]):  # CPF/CNPJ
                     label = "CPF/CNPJ:"
                     labels.append(label)
                     client_data.append([
@@ -303,15 +310,15 @@ class OrderPDFGenerator:
                         Paragraph(formatar_cpf_cnpj(cliente[1]), client_data_style)
                     ])
                 
-                if cliente[2]:  # Endereço
+                if is_valid_field(cliente[2]):  # Endereço
                     label = "Endereço:"
                     labels.append(label)
                     client_data.append([
                         label, 
-                        Paragraph(cliente[2] or "", client_data_style)
+                        Paragraph(str(cliente[2]).strip(), client_data_style)
                     ])
                 
-                if cliente[3]:  # Telefone
+                if is_valid_field(cliente[3]):  # Telefone
                     label = "Telefone:"
                     labels.append(label)
                     client_data.append([
@@ -319,18 +326,18 @@ class OrderPDFGenerator:
                         Paragraph(formatar_telefone(cliente[3]), client_data_style)
                     ])
                 
-                if cliente[4]:  # E-mail
+                if is_valid_field(cliente[4]):  # E-mail
                     label = "E-mail:"
                     labels.append(label)
                     client_data.append([
                         label, 
-                        Paragraph(cliente[4] or "", client_data_style)
+                        Paragraph(str(cliente[4]).strip(), client_data_style)
                     ])
                 
                 # Calcular largura da primeira coluna baseada no maior label
-                # Usar largura total de 16.5cm para alinhar com outras tabelas (impostos, BDI)
+                # Usar largura total de 15.8cm para alinhar com tabelas de serviços e materiais
                 # Largura útil da página: ~16.8cm (A4 com margens de 2.1cm)
-                table_total_width = 16.5*cm  # Mesma largura das tabelas de impostos e BDI
+                table_total_width = 15.8*cm  # Mesma largura das tabelas de serviços e materiais
                 if labels:
                     # Estimar largura necessária (fonte Helvetica-Bold 10pt)
                     # Aproximadamente 0.2cm por caractere para fonte bold (mais preciso)
@@ -1317,7 +1324,8 @@ class OrderPDFGenerator:
             fontSize=10,
             fontName='Helvetica',
             alignment=TA_LEFT,
-            leading=12
+            leading=12,
+            wordWrap='CJK'  # Permite quebra de palavra
         )
         
         # Criar lista de dados do cliente, filtrando campos vazios
@@ -1334,16 +1342,22 @@ class OrderPDFGenerator:
         ]
         labels = []
         
-        # Adicionar apenas campos preenchidos
-        if cliente.get('nome'):
+        # Adicionar apenas campos preenchidos (verificar se não é None, não é string vazia, não é "-" e não é "None")
+        def is_valid_field(value):
+            if value is None:
+                return False
+            value_str = str(value).strip()
+            return value_str and value_str.lower() not in ['-', 'none', 'null', '']
+        
+        if is_valid_field(cliente.get('nome')):
             label = "Nome/Razão Social:"
             labels.append(label)
             client_data.append([
                 label, 
-                Paragraph(cliente['nome'], client_data_style)
+                Paragraph(str(cliente['nome']).strip(), client_data_style)
             ])
         
-        if cliente.get('cnpj_cpf'):
+        if is_valid_field(cliente.get('cnpj_cpf')):
             label = "CNPJ/CPF:"
             labels.append(label)
             client_data.append([
@@ -1351,15 +1365,15 @@ class OrderPDFGenerator:
                 Paragraph(formatar_cpf_cnpj(cliente.get('cnpj_cpf', '')), client_data_style)
             ])
         
-        if cliente.get('endereco'):
+        if is_valid_field(cliente.get('endereco')):
             label = "Endereço:"
             labels.append(label)
             client_data.append([
                 label, 
-                Paragraph(cliente.get('endereco', ''), client_data_style)
+                Paragraph(str(cliente.get('endereco', '')).strip(), client_data_style)
             ])
         
-        if cliente.get('telefone'):
+        if is_valid_field(cliente.get('telefone')):
             label = "Telefone:"
             labels.append(label)
             client_data.append([
@@ -1367,12 +1381,12 @@ class OrderPDFGenerator:
                 Paragraph(formatar_telefone(cliente.get('telefone', '')), client_data_style)
             ])
         
-        if cliente.get('email'):
+        if is_valid_field(cliente.get('email')):
             label = "E-mail:"
             labels.append(label)
             client_data.append([
                 label, 
-                Paragraph(cliente.get('email', ''), client_data_style)
+                Paragraph(str(cliente.get('email', '')).strip(), client_data_style)
             ])
         
         # Calcular largura da primeira coluna baseada no maior label
@@ -1646,22 +1660,27 @@ class OrderPDFGenerator:
             total_materiais += material['total']
             nome_completo = f"{material['nome']} - {material['marca']}" if material.get('marca') else material['nome']
             
+            # Calcular preço unitário final (com adicional) a partir do total
+            # O total já inclui o adicional, então dividimos pelo qtd para obter o preço unitário final
+            qtd_material = material.get('qtd', 1)
+            preco_unit_final = material['total'] / qtd_material if qtd_material > 0 else material['total']
+            
             if tem_data:
                 data_material = material.get('data', '') or ''
                 materials_data.append([
                     str(i),
                     Paragraph(nome_completo, self.styles['CustomNormal']),
                     data_material,
-                    str(material['qtd']),
-                    f"R$ {material['preco_unit']:.2f}",
+                    str(qtd_material),
+                    f"R$ {preco_unit_final:.2f}",
                     f"R$ {material['total']:.2f}"
                 ])
             else:
                 materials_data.append([
                     str(i),
                     Paragraph(nome_completo, self.styles['CustomNormal']),
-                    str(material['qtd']),
-                    f"R$ {material['preco_unit']:.2f}",
+                    str(qtd_material),
+                    f"R$ {preco_unit_final:.2f}",
                     f"R$ {material['total']:.2f}"
                 ])
         
