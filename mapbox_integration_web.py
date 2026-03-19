@@ -1,3 +1,4 @@
+import os
 import requests
 import re
 from database_web import get_db_connection
@@ -7,7 +8,7 @@ class MapboxIntegration:
         self.token = self.get_mapbox_token()
         
     def get_mapbox_token(self):
-        """Obter token do Mapbox do banco de dados"""
+        """Obter token do Mapbox do banco de dados ou do ambiente"""
         try:
             conn = get_db_connection()
             cursor = conn.cursor()
@@ -16,18 +17,20 @@ class MapboxIntegration:
             result = cursor.fetchone()
             conn.close()
             
-            if result:
+            if result and result[0]:
                 return result[0]
-            else:
-                return 'pk.eyJ1Ijoia3Jpc3RpYW5iZXJuYXJkIiwiYSI6ImNtZ3B2YTYwZDBiaTIybXB3Z3I2YzNxbW0ifQ.4WXS8ckDpkZp_6LFFyTeGA'
+            return os.getenv('MAPBOX_TOKEN', '')
                 
         except Exception as e:
             print(f"Erro ao obter token: {e}")
-            return 'pk.eyJ1Ijoia3Jpc3RpYW5iZXJuYXJkIiwiYSI6ImNtZ3B2YTYwZDBiaTIybXB3Z3I2YzNxbW0ifQ.4WXS8ckDpkZp_6LFFyTeGA'
+            return os.getenv('MAPBOX_TOKEN', '')
     
     def geocode_address(self, address):
         """Geocodificar endereço usando Mapbox Geocoding API"""
         try:
+            if not self.token:
+                return None
+
             coord_pattern = re.compile(r'(-?\d+\.\d+)[,\s]+(-?\d+\.\d+)')
             match = coord_pattern.search(address)
             
@@ -66,6 +69,9 @@ class MapboxIntegration:
     def calculate_distance(self, origin_lng, origin_lat, dest_lng, dest_lat):
         """Calcular distância entre dois pontos"""
         try:
+            if not self.token:
+                return None
+
             url = "https://api.mapbox.com/directions-matrix/v1/mapbox/driving"
             params = {
                 'access_token': self.token,

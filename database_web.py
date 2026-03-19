@@ -451,7 +451,7 @@ def insert_initial_config(cursor):
     """Insere configurações padrão do sistema"""
     configs = [
         ('taxa_por_km', '5.00', 'Taxa cobrada por quilômetro de deslocamento'),
-        ('mapbox_token', 'pk.eyJ1Ijoia3Jpc3RpYW5iZXJuYXJkIiwiYSI6ImNtZ3B2YTYwZDBiaTIybXB3Z3I2YzNxbW0ifQ.4WXS8ckDpkZp_6LFFyTeGA', 'Token de acesso da API Mapbox'),
+        ('mapbox_token', os.getenv('MAPBOX_TOKEN', ''), 'Token de acesso da API Mapbox'),
         ('empresa_nome', 'ERP Eletrotécnica', 'Nome da empresa'),
         ('empresa_cnpj', '', 'CNPJ da empresa')
     ]
