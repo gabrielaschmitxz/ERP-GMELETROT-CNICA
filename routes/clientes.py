@@ -81,7 +81,7 @@ def listar():
             query += " WHERE (nome ILIKE %s OR cnpj_cpf ILIKE %s)"
             params.extend([f'%{search}%', f'%{search}%'])
         
-        query += " ORDER BY nome"
+        query += " ORDER BY id"
         cursor.execute(query, params)
         clientes = cursor.fetchall()
         conn.close()
