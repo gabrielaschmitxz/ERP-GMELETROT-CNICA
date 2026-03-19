@@ -41,6 +41,25 @@ def formatar_telefone(value):
     else:
         return value  # Retorna sem formatação se não tiver 10 ou 11 dígitos
 
+def formatar_inscricao_estadual(value):
+    """Formata inscrição estadual em padrão genérico: 000.000.000.000-00"""
+    if not value:
+        return ''
+    value_str = str(value).strip()
+    if any(ch in value_str for ch in ['.', '-', '/']):
+        return value_str
+
+    digits = re.sub(r'\D', '', value_str)
+    if len(digits) <= 3:
+        return digits
+    if len(digits) <= 6:
+        return re.sub(r'^(\d{3})(\d{0,3})$', r'\1.\2', digits)
+    if len(digits) <= 9:
+        return re.sub(r'^(\d{3})(\d{3})(\d{0,3})$', r'\1.\2.\3', digits)
+    if len(digits) <= 12:
+        return re.sub(r'^(\d{3})(\d{3})(\d{3})(\d{0,3})$', r'\1.\2.\3.\4', digits)
+    return re.sub(r'^(\d{3})(\d{3})(\d{3})(\d{3})(\d{0,2})$', r'\1.\2.\3.\4-\5', digits[:14])
+
 class OrderPDFGenerator:
     def __init__(self):
         self.styles = getSampleStyleSheet()
@@ -91,6 +110,8 @@ class OrderPDFGenerator:
     def generate_pdf(self, order_data, output_path=None):
         """Gerar PDF da ordem de serviço"""
         order_id = order_data['ordem_id']
+        tipo_documento = (order_data.get('tipo_documento') or 'OS').strip()
+        codigo_orcamento = order_data.get('codigo_orcamento')
         today_str = date.today().strftime("%d_%m_%Y")
 
         if output_path is None:
@@ -98,7 +119,11 @@ class OrderPDFGenerator:
             pdf_dir = "pdfs"
             if not os.path.exists(pdf_dir):
                 os.makedirs(pdf_dir)
-            output_path = os.path.join(pdf_dir, f"OrdemDeServico_{today_str}_{order_id}.pdf")
+            if tipo_documento == 'ORC':
+                numero_doc = codigo_orcamento if codigo_orcamento else order_id
+                output_path = os.path.join(pdf_dir, f"Orcamento_{today_str}_{numero_doc}.pdf")
+            else:
+                output_path = os.path.join(pdf_dir, f"OrdemDeServico_{today_str}_{order_id}.pdf")
             
         # Ajustar margens conforme solicitado (2.1cm)
         doc = SimpleDocTemplate(
@@ -233,6 +258,10 @@ class OrderPDFGenerator:
         
         # Título do relatório
         ordem_id = order_data.get('ordem_id', '')
+        tipo_documento = (order_data.get('tipo_documento') or 'OS').strip()
+        codigo_orcamento = order_data.get('codigo_orcamento')
+        numero_doc = codigo_orcamento if (tipo_documento == 'ORC' and codigo_orcamento) else ordem_id
+        titulo_doc = "Orçamento" if tipo_documento == 'ORC' else "Ordem de Serviço"
         report_title_style = ParagraphStyle(
             name='ReportTitle',
             parent=self.styles['Heading2'],
@@ -241,7 +270,7 @@ class OrderPDFGenerator:
             alignment=TA_CENTER,
             textColor=self.dark_blue
         )
-        elements.append(Paragraph(f"Relatório - Ordem de Serviço - {ordem_id}", report_title_style))
+        elements.append(Paragraph(f"{titulo_doc} - {numero_doc}", report_title_style))
         return elements
         
     def create_client_section(self, order_data):
@@ -1001,7 +1030,7 @@ class OrderPDFGenerator:
             conn = get_db_connection()
             cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
             cursor.execute('''
-                SELECT fp.nome, fp.tipo, os.parcelas
+                SELECT fp.nome, fp.tipo, os.parcelas, os.total
                 FROM formas_pagamento fp
                 JOIN ordens_servico os ON os.forma_pagamento_id = fp.id
                 WHERE os.id = %s
@@ -1010,8 +1039,12 @@ class OrderPDFGenerator:
             if result:
                 forma_pagamento_str = result['nome']
                 elements.append(Paragraph(f"<b>Forma de Pagamento:</b> {forma_pagamento_str}", self.styles['CustomNormal']))
-                if result['tipo'] == 'Parcelado' and result['parcelas'] and result['parcelas'] > 1:
-                    elements.append(Paragraph(f"<b>Número de Parcelas:</b> {result['parcelas']}x", self.styles['CustomNormal'])) # Adicionado 'x'
+                if result['tipo'] == 'Parcelado' and result['parcelas'] and result['parcelas'] >= 1:
+                    parcelas = int(result['parcelas'])
+                    total_ordem = float(result.get('total') or 0)
+                    valor_parcela = total_ordem / parcelas if parcelas > 0 else 0
+                    elements.append(Paragraph(f"<b>Número de Parcelas:</b> {parcelas}x", self.styles['CustomNormal']))
+                    elements.append(Paragraph(f"<b>Valor da Parcela:</b> R$ {valor_parcela:.2f}", self.styles['CustomNormal']))
             else:
                 elements.append(Paragraph(f"<b>Forma de Pagamento:</b> {forma_pagamento_str}", self.styles['CustomNormal']))
             conn.close()
@@ -1243,25 +1276,25 @@ class OrderPDFGenerator:
         
         # Cabeçalho
         story.extend(self.create_header_relatorio_mensal(cliente, mes_ano, numeros_os))
-        story.append(Spacer(1, 20))
+        story.append(Spacer(1, 12))
         
         # Dados do cliente
         story.extend(self.create_client_section_relatorio_mensal(cliente))
-        story.append(Spacer(1, 15))
+        story.append(Spacer(1, 10))
         
         # Serviços (agrupados por local)
         story.extend(self.create_services_section_relatorio_mensal(report_data))
-        story.append(Spacer(1, 15))
+        story.append(Spacer(1, 10))
         
         # Materiais (se houver)
         if report_data.get('materiais'):
             story.extend(self.create_materials_section_relatorio_mensal(report_data))
-            story.append(Spacer(1, 15))
+            story.append(Spacer(1, 10))
         
         # Frete/Deslocamento (se houver)
         if report_data.get('fretes_deslocamentos'):
             story.extend(self.create_frete_deslocamento_section_relatorio_mensal(report_data))
-            story.append(Spacer(1, 15))
+            story.append(Spacer(1, 10))
         
         # Resumo financeiro
         story.extend(self.create_resumo_financeiro_relatorio_mensal(report_data))
@@ -1309,7 +1342,7 @@ class OrderPDFGenerator:
             alignment=TA_CENTER,
             textColor=colors.grey
         )
-        elements.append(Paragraph(f"Ordens de Serviço: {numeros_os}", subtitle_style))
+        elements.append(Paragraph(f"Código das ordens de serviço: {numeros_os}", subtitle_style))
         
         return elements
     
@@ -1363,6 +1396,14 @@ class OrderPDFGenerator:
             client_data.append([
                 label, 
                 Paragraph(formatar_cpf_cnpj(cliente.get('cnpj_cpf', '')), client_data_style)
+            ])
+
+        if is_valid_field(cliente.get('inscricao_estadual')):
+            label = "Inscrição Estadual / Nº:"
+            labels.append(label)
+            client_data.append([
+                label,
+                Paragraph(formatar_inscricao_estadual(cliente.get('inscricao_estadual', '')), client_data_style)
             ])
         
         if is_valid_field(cliente.get('endereco')):
@@ -1438,8 +1479,12 @@ class OrderPDFGenerator:
         """Criar seção de serviços agrupados por local"""
         elements = []
         
-        title_style = self.styles['CustomHeading2']
-        title_style.alignment = TA_LEFT
+        title_style = ParagraphStyle(
+            name='MonthlyServicesTitle',
+            parent=self.styles['CustomHeading2'],
+            alignment=TA_LEFT,
+            spaceAfter=6
+        )
         elements.append(Paragraph("Serviços Prestados", title_style))
         
         servicos = report_data.get('servicos', [])
@@ -1465,30 +1510,37 @@ class OrderPDFGenerator:
         
         # Definir larguras fixas para todas as tabelas
         if tem_data_global:
-            col_widths = [0.7*cm, 4.5*cm, 1.5*cm, 1.8*cm, 1.5*cm, 2.5*cm, 2.5*cm]
+            col_widths = [0.8*cm, 6.2*cm, 2.0*cm, 1.8*cm, 2.1*cm, 2.1*cm]
+            sem_local_col_widths = [0.8*cm, 6.2*cm, 2.0*cm, 1.8*cm, 2.1*cm, 2.1*cm]
         else:
-            col_widths = [0.8*cm, 5*cm, 2*cm, 2*cm, 3*cm, 3*cm]
+            col_widths = [0.8*cm, 7.2*cm, 2.0*cm, 2.5*cm, 2.5*cm]
+            sem_local_col_widths = [0.8*cm, 7.2*cm, 2.0*cm, 2.5*cm, 2.5*cm]
         
         # Criar tabela para cada local
         for local in sorted(servicos_por_local.keys()):
             servicos_local = servicos_por_local[local]
             
             # Título do local
-            local_title = Paragraph(f"<b>Local: {local}</b>", self.styles['CustomHeading3'])
-            local_title.alignment = TA_CENTER
+            local_title_style = ParagraphStyle(
+                name=f"MonthlyLocalTitle{re.sub(r'[^A-Za-z0-9]+', '', str(local))[:30] or 'Padrao'}",
+                parent=self.styles['CustomHeading3'],
+                alignment=TA_LEFT,
+                spaceAfter=4
+            )
+            local_title = Paragraph(f"<b>Local: {local}</b>", local_title_style)
             
             # Criar tabela - sempre com a mesma estrutura se tem_data_global
             if tem_data_global:
                 services_data = [
                     ["Item", Paragraph("Descrição", self.styles['TableHeader']), 
-                     "Local", "Data", "Qtde", 
+                     "Data", "Qtde", 
                      Paragraph("Valor Unit.", self.styles['TableHeader']), 
                      Paragraph("Valor Total (R$)", self.styles['TableHeader'])]
                 ]
             else:
                 services_data = [
                     ["Item", Paragraph("Descrição", self.styles['TableHeader']), 
-                     "Local", "Qtde", 
+                     "Qtde", 
                      Paragraph("Valor Unit.", self.styles['TableHeader']), 
                      Paragraph("Valor Total (R$)", self.styles['TableHeader'])]
                 ]
@@ -1496,13 +1548,10 @@ class OrderPDFGenerator:
             total_local = 0
             for i, servico in enumerate(servicos_local, 1):
                 total_local += servico['total']
-                
-                local_text = servico.get('local', '') or ''
                 if tem_data_global:
                     services_data.append([
                         str(i),
                         Paragraph(servico['nome'], self.styles['CustomNormal']),
-                        Paragraph(local_text, self.styles['CustomNormal']),
                         servico.get('data', ''),
                         str(servico['qtd']),
                         f"R$ {servico['preco_unit']:.2f}",
@@ -1512,7 +1561,6 @@ class OrderPDFGenerator:
                     services_data.append([
                         str(i),
                         Paragraph(servico['nome'], self.styles['CustomNormal']),
-                        Paragraph(local_text, self.styles['CustomNormal']),
                         str(servico['qtd']),
                         f"R$ {servico['preco_unit']:.2f}",
                         f"R$ {servico['total']:.2f}"
@@ -1520,13 +1568,13 @@ class OrderPDFGenerator:
             
             # Linha de total
             if tem_data_global:
-                services_data.append(['', '', '', '', '', 'Total', f"R$ {total_local:.2f}"])
-                span_cols = (0, -1), (4, -1)
-            else:
                 services_data.append(['', '', '', '', 'Total', f"R$ {total_local:.2f}"])
                 span_cols = (0, -1), (3, -1)
+            else:
+                services_data.append(['', '', '', 'Total', f"R$ {total_local:.2f}"])
+                span_cols = (0, -1), (2, -1)
             
-            services_table = Table(services_data, colWidths=col_widths)
+            services_table = Table(services_data, colWidths=col_widths, repeatRows=1)
             services_table.setStyle(TableStyle([
                 ('BACKGROUND', (0, 0), (-1, 0), self.dark_blue),
                 ('BACKGROUND', (0, -1), (-1, -1), colors.lightgrey),
@@ -1543,12 +1591,9 @@ class OrderPDFGenerator:
                 ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
             ]))
             
-            elements.append(KeepTogether([
-                local_title,
-                Spacer(1, 0.2*cm),
-                services_table
-            ]))
-            elements.append(Spacer(1, 0.5*cm))
+            elements.append(local_title)
+            elements.append(services_table)
+            elements.append(Spacer(1, 0.35*cm))
         
         # Serviços sem local (se houver)
         if servicos_sem_local:
@@ -1556,14 +1601,14 @@ class OrderPDFGenerator:
             if tem_data_global:
                 services_data = [
                     ["Item", Paragraph("Descrição", self.styles['TableHeader']), 
-                     "Local", "Data", "Qtde", 
+                     "Data", "Qtde", 
                      Paragraph("Valor Unit.", self.styles['TableHeader']), 
                      Paragraph("Valor Total (R$)", self.styles['TableHeader'])]
                 ]
             else:
                 services_data = [
                     ["Item", Paragraph("Descrição", self.styles['TableHeader']), 
-                     "Local", "Qtde", 
+                     "Qtde", 
                      Paragraph("Valor Unit.", self.styles['TableHeader']), 
                      Paragraph("Valor Total (R$)", self.styles['TableHeader'])]
                 ]
@@ -1576,7 +1621,6 @@ class OrderPDFGenerator:
                     services_data.append([
                         str(i),
                         Paragraph(servico['nome'], self.styles['CustomNormal']),
-                        '',  # Local vazio
                         servico.get('data', ''),
                         str(servico['qtd']),
                         f"R$ {servico['preco_unit']:.2f}",
@@ -1586,7 +1630,6 @@ class OrderPDFGenerator:
                     services_data.append([
                         str(i),
                         Paragraph(servico['nome'], self.styles['CustomNormal']),
-                        '',  # Local vazio
                         str(servico['qtd']),
                         f"R$ {servico['preco_unit']:.2f}",
                         f"R$ {servico['total']:.2f}"
@@ -1594,19 +1637,19 @@ class OrderPDFGenerator:
             
             # Linha de total
             if tem_data_global:
-                services_data.append(['', '', '', '', '', 'Total', f"R$ {total_sem_local:.2f}"])
-                span_cols = (0, -1), (4, -1)
-            else:
                 services_data.append(['', '', '', '', 'Total', f"R$ {total_sem_local:.2f}"])
                 span_cols = (0, -1), (3, -1)
+            else:
+                services_data.append(['', '', '', 'Total', f"R$ {total_sem_local:.2f}"])
+                span_cols = (0, -1), (2, -1)
             
             # Usar as mesmas larguras definidas anteriormente
-            services_table = Table(services_data, colWidths=col_widths)
+            services_table = Table(services_data, colWidths=sem_local_col_widths, repeatRows=1)
             services_table.setStyle(TableStyle([
                 ('BACKGROUND', (0, 0), (-1, 0), self.dark_blue),
                 ('BACKGROUND', (0, -1), (-1, -1), colors.lightgrey),
                 ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
-                ('ALIGN', (len(col_widths)-2, -1), (len(col_widths)-1, -1), 'RIGHT'),
+                ('ALIGN', (len(sem_local_col_widths)-2, -1), (len(sem_local_col_widths)-1, -1), 'RIGHT'),
                 ('SPAN', span_cols[0], span_cols[1]),
                 ('ALIGN', span_cols[0], span_cols[1], 'RIGHT'),
                 ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
@@ -1618,7 +1661,7 @@ class OrderPDFGenerator:
                 ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
             ]))
             
-            elements.append(KeepTogether(services_table))
+            elements.append(services_table)
         
         return elements
     
@@ -1626,8 +1669,12 @@ class OrderPDFGenerator:
         """Criar seção de materiais"""
         elements = []
         
-        title_style = self.styles['CustomHeading2']
-        title_style.alignment = TA_LEFT
+        title_style = ParagraphStyle(
+            name='MonthlyMaterialsTitle',
+            parent=self.styles['CustomHeading2'],
+            alignment=TA_LEFT,
+            spaceAfter=6
+        )
         elements.append(Paragraph("Materiais Utilizados", title_style))
         
         materiais = report_data.get('materiais', [])
@@ -1693,7 +1740,7 @@ class OrderPDFGenerator:
             col_widths = [1*cm, 6*cm, 2.5*cm, 3.5*cm, 3.5*cm]
             span_cols = (0, -1), (2, -1)  # Mesclar Item até Qtde
         
-        materials_table = Table(materials_data, colWidths=col_widths)
+        materials_table = Table(materials_data, colWidths=col_widths, repeatRows=1)
         table_style = [
             ('BACKGROUND', (0, 0), (-1, 0), self.dark_blue),
             ('BACKGROUND', (0, -1), (-1, -1), colors.lightgrey),
@@ -1713,15 +1760,19 @@ class OrderPDFGenerator:
         
         materials_table.setStyle(TableStyle(table_style))
         
-        elements.append(KeepTogether(materials_table))
+        elements.append(materials_table)
         return elements
     
     def create_frete_deslocamento_section_relatorio_mensal(self, report_data):
         """Criar seção de frete/deslocamento em formato de tabela"""
         elements = []
         
-        title_style = self.styles['CustomHeading2']
-        title_style.alignment = TA_LEFT
+        title_style = ParagraphStyle(
+            name='MonthlyFreteTitle',
+            parent=self.styles['CustomHeading2'],
+            alignment=TA_LEFT,
+            spaceAfter=6
+        )
         elements.append(Paragraph("Frete/Deslocamento", title_style))
         
         fretes = report_data.get('fretes_deslocamentos', [])
@@ -1747,7 +1798,7 @@ class OrderPDFGenerator:
         
         frete_data.append(['', '', 'Total', f"R$ {total_frete:.2f}"])
         
-        frete_table = Table(frete_data, colWidths=[1*cm, 4*cm, 3*cm, 4*cm])
+        frete_table = Table(frete_data, colWidths=[0.8*cm, 5.2*cm, 3*cm, 6*cm], repeatRows=1)
         frete_table.setStyle(TableStyle([
             ('BACKGROUND', (0, 0), (-1, 0), self.dark_blue),
             ('BACKGROUND', (0, -1), (-1, -1), colors.lightgrey),
@@ -1766,18 +1817,23 @@ class OrderPDFGenerator:
             ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
         ]))
         
-        elements.append(KeepTogether(frete_table))
+        elements.append(frete_table)
         return elements
     
     def create_resumo_financeiro_relatorio_mensal(self, report_data):
         """Criar resumo financeiro do relatório mensal"""
         elements = []
         
-        title_style = self.styles['CustomHeading2']
-        title_style.alignment = TA_CENTER
+        title_style = ParagraphStyle(
+            name='MonthlyResumoTitle',
+            parent=self.styles['CustomHeading2'],
+            alignment=TA_CENTER,
+            spaceAfter=6
+        )
         elements.append(Paragraph("Resumo Financeiro", title_style))
         
         totais = report_data['totais']
+        pagamento = report_data.get('pagamento', {})
         
         composition_data = [
             ["(+) Serviços", f"R$ {totais['servicos']:.2f}"],
@@ -1793,8 +1849,33 @@ class OrderPDFGenerator:
         if totais['bdi'] > 0:
             composition_data.append(["(+) BDI", f"R$ {totais['bdi']:.2f}"])
         
-        if totais['descontos'] > 0:
-            composition_data.append(["(-) Descontos", f"R$ {totais['descontos']:.2f}"])
+        descontos_os = float(totais.get('descontos', 0) or 0)
+        if descontos_os > 0:
+            composition_data.append(["(-) Descontos (OS)", f"R$ {descontos_os:.2f}"])
+
+        # Desconto mensal (novo): aplicado sobre o total do mês (além dos descontos das OS)
+        desconto_mensal_valor = float(totais.get('desconto_mensal_valor', 0) or 0)
+        desconto_mensal_tipo = (totais.get('desconto_mensal_tipo') or '').strip()
+        desconto_mensal_percentual = float(totais.get('desconto_mensal_percentual', 0) or 0)
+        if desconto_mensal_valor > 0:
+            if desconto_mensal_tipo == 'percentual' and desconto_mensal_percentual > 0:
+                composition_data.append([f"(-) Desconto Mensal ({desconto_mensal_percentual:.2f}%)", f"R$ {desconto_mensal_valor:.2f}"])
+            else:
+                composition_data.append(["(-) Desconto Mensal", f"R$ {desconto_mensal_valor:.2f}"])
+
+        # Forma de pagamento no resumo financeiro
+        forma_pagamento_nome = (pagamento.get('forma_pagamento_nome') or '').strip()
+        forma_pagamento_tipo = (pagamento.get('forma_pagamento_tipo') or '').strip()
+        parcelas = int(pagamento.get('parcelas') or 1)
+        if forma_pagamento_nome:
+            composition_data.append(["Forma de Pagamento", forma_pagamento_nome])
+        else:
+            composition_data.append(["Forma de Pagamento", "Não informada"])
+
+        if forma_pagamento_tipo == 'Parcelado' and parcelas > 1:
+            composition_data.append(["Parcelamento", f"{parcelas}x"])
+            valor_parcela = float(totais.get('geral', 0) or 0) / parcelas if parcelas > 0 else 0
+            composition_data.append(["Valor da Parcela", f"R$ {valor_parcela:.2f}"])
         
         composition_data.extend([
             ["", ""],
@@ -1818,7 +1899,7 @@ class OrderPDFGenerator:
             ('LINEBELOW', (0, -1), (-1, -1), 2, colors.black),
         ]))
         
-        elements.append(KeepTogether(composition_table))
+        elements.append(composition_table)
         return elements
     
     def create_assinatura_padrao_relatorio_mensal(self):

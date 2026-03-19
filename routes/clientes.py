@@ -8,6 +8,18 @@ from datetime import datetime, timedelta
 
 bp = Blueprint('clientes', __name__, url_prefix='/clientes')
 
+
+def _upsert_cobranca_mensal_relatorio(cursor, cliente_id: int, mes: int, ano: int, total_bruto: float):
+    cursor.execute('''
+        INSERT INTO cobrancas_mensais (cliente_id, mes, ano, total_bruto, total_liquido)
+        VALUES (%s, %s, %s, %s, %s)
+        ON CONFLICT (cliente_id, mes, ano) DO UPDATE
+        SET total_bruto = EXCLUDED.total_bruto,
+            updated_at = CURRENT_TIMESTAMP
+        RETURNING id
+    ''', (cliente_id, mes, ano, total_bruto, total_bruto))
+    return cursor.fetchone()[0]
+
 def formatar_cpf_cnpj(value):
     """Formata CPF ou CNPJ"""
     if not value:
@@ -296,22 +308,71 @@ def selecionar_mes_relatorio(id):
         # Buscar dados do cliente
         cursor.execute('SELECT * FROM clientes WHERE id = %s', (id,))
         cliente = cursor.fetchone()
-        conn.close()
+        cursor.execute('SELECT id, nome, tipo FROM formas_pagamento ORDER BY nome')
+        formas_pagamento = cursor.fetchall()
         
         if not cliente:
+            conn.close()
             flash('Cliente não encontrado!', 'danger')
             return redirect(url_for('clientes.listar'))
         
         if request.method == 'POST':
-            # Redirecionar para gerar o relatório com o mês selecionado
-            mes = request.form.get('mes')
-            ano = request.form.get('ano')
-            return redirect(url_for('clientes.relatorio_mensal', id=id, mes=mes, ano=ano))
+            data_inicio = (request.form.get('data_inicio') or '').strip()
+            data_fim = (request.form.get('data_fim') or '').strip()
+            forma_pagamento_id = request.form.get('forma_pagamento_id', type=int)
+            parcelas = request.form.get('parcelas', type=int) or 1
+            data_pagamento = (request.form.get('data_pagamento') or '').strip()
+            data_primeira_parcela = (request.form.get('data_primeira_parcela') or '').strip()
+            desconto_tipo = (request.form.get('desconto_tipo') or '').strip()
+            desconto_valor = (request.form.get('desconto_valor') or '0').strip()
+
+            if not data_inicio or not data_fim:
+                conn.close()
+                flash('Informe um período válido para gerar o relatório.', 'danger')
+                return redirect(url_for('clientes.selecionar_mes_relatorio', id=id))
+
+            if not forma_pagamento_id:
+                conn.close()
+                flash('Informe a forma de pagamento antes de emitir o PDF.', 'danger')
+                return redirect(url_for('clientes.selecionar_mes_relatorio', id=id))
+
+            cursor.execute('SELECT id, tipo FROM formas_pagamento WHERE id = %s', (forma_pagamento_id,))
+            forma_pagamento = cursor.fetchone()
+            if not forma_pagamento:
+                conn.close()
+                flash('Forma de pagamento inválida.', 'danger')
+                return redirect(url_for('clientes.selecionar_mes_relatorio', id=id))
+
+            eh_parcelado = (forma_pagamento.get('tipo') or '') == 'Parcelado' and parcelas > 1
+            if eh_parcelado and not data_primeira_parcela:
+                conn.close()
+                flash('Informe a data da primeira parcela.', 'danger')
+                return redirect(url_for('clientes.selecionar_mes_relatorio', id=id))
+            if not eh_parcelado and not data_pagamento:
+                conn.close()
+                flash('Informe a data do pagamento.', 'danger')
+                return redirect(url_for('clientes.selecionar_mes_relatorio', id=id))
+
+            conn.close()
+            return redirect(url_for(
+                'clientes.relatorio_mensal',
+                id=id,
+                data_inicio=data_inicio,
+                data_fim=data_fim,
+                forma_pagamento_id=forma_pagamento_id,
+                parcelas=parcelas,
+                data_pagamento=data_pagamento or None,
+                data_primeira_parcela=data_primeira_parcela or None,
+                desconto_tipo=desconto_tipo or None,
+                desconto_valor=desconto_valor
+            ))
         
         # GET - mostrar formulário de seleção
         hoje = datetime.now()
+        conn.close()
         return render_template('clientes/selecionar_mes_relatorio.html', 
                              cliente=cliente, 
+                             formas_pagamento=formas_pagamento,
                              mes_atual=hoje.month, 
                              ano_atual=hoje.year)
         
@@ -324,13 +385,39 @@ def selecionar_mes_relatorio(id):
 def relatorio_mensal(id):
     """Gerar relatório mensal consolidado do cliente"""
     try:
-        # Obter mês e ano dos parâmetros da URL
         mes = request.args.get('mes', type=int)
         ano = request.args.get('ano', type=int)
-        
-        if not mes or not ano:
-            flash('Mês e ano são obrigatórios!', 'danger')
+        data_inicio_raw = (request.args.get('data_inicio', '') or '').strip()
+        data_fim_raw = (request.args.get('data_fim', '') or '').strip()
+        forma_pagamento_id_arg = request.args.get('forma_pagamento_id', type=int)
+        parcelas_arg = request.args.get('parcelas', type=int) or 1
+        data_pagamento_arg = (request.args.get('data_pagamento', '') or '').strip()
+        data_primeira_parcela_arg = (request.args.get('data_primeira_parcela', '') or '').strip()
+        desconto_tipo_arg = (request.args.get('desconto_tipo', '') or '').strip()
+        desconto_valor_arg = float(request.args.get('desconto_valor', type=float) or 0)
+
+        primeiro_dia_mes = None
+        ultimo_dia_mes = None
+
+        if data_inicio_raw and data_fim_raw:
+            try:
+                primeiro_dia_mes = datetime.strptime(data_inicio_raw, '%Y-%m-%d').date()
+                ultimo_dia_mes = datetime.strptime(data_fim_raw, '%Y-%m-%d').date()
+            except Exception:
+                flash('Período inválido para gerar o relatório!', 'danger')
+                return redirect(url_for('clientes.listar'))
+        elif mes and ano:
+            primeiro_dia_mes = datetime(ano, mes, 1).date()
+            if mes == 12:
+                ultimo_dia_mes = datetime(ano + 1, 1, 1).date() - timedelta(days=1)
+            else:
+                ultimo_dia_mes = datetime(ano, mes + 1, 1).date() - timedelta(days=1)
+        else:
+            flash('Mês/ano ou período são obrigatórios!', 'danger')
             return redirect(url_for('clientes.selecionar_mes_relatorio', id=id))
+
+        if primeiro_dia_mes > ultimo_dia_mes:
+            primeiro_dia_mes, ultimo_dia_mes = ultimo_dia_mes, primeiro_dia_mes
         
         conn = get_db_connection()
         cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
@@ -344,14 +431,6 @@ def relatorio_mensal(id):
             conn.close()
             return redirect(url_for('clientes.listar'))
         
-        # Buscar todas as ordens do cliente no mês selecionado
-        primeiro_dia_mes = datetime(ano, mes, 1).date()
-        # Calcular último dia do mês
-        if mes == 12:
-            ultimo_dia_mes = datetime(ano + 1, 1, 1).date() - timedelta(days=1)
-        else:
-            ultimo_dia_mes = datetime(ano, mes + 1, 1).date() - timedelta(days=1)
-        
         cursor.execute('''
             SELECT id, data, total, status, valor_deslocamento, km
             FROM ordens_servico 
@@ -363,9 +442,9 @@ def relatorio_mensal(id):
         ordens = cursor.fetchall()
         
         if not ordens:
-            flash(f'Nenhuma ordem de serviço encontrada para este cliente em {mes:02d}/{ano}!', 'warning')
+            flash(f'Nenhuma ordem de serviço encontrada para este cliente entre {primeiro_dia_mes.strftime("%d/%m/%Y")} e {ultimo_dia_mes.strftime("%d/%m/%Y")}!', 'warning')
             conn.close()
-            return redirect(url_for('clientes.selecionar_mes_relatorio', id=id))
+            return redirect(url_for('clientes.listar'))
         
         # Coletar todos os IDs das ordens
         ordem_ids = [ordem['id'] for ordem in ordens]
@@ -420,16 +499,166 @@ def relatorio_mensal(id):
         total_bdi = sum(float(a['valor']) for a in adicionais if a['tipo'] == 'bdi')
         total_descontos = sum(float(a['valor']) for a in adicionais if a['tipo'] == 'desconto')
         total_geral = total_servicos + total_materiais + total_deslocamento + total_impostos + total_bdi - total_descontos
+
+        pagamento = {}
+        desconto_mensal_tipo = None
+        desconto_mensal_valor = 0.0
+        desconto_mensal_percentual = 0.0
+        configuracao_persistida_por_args = False
+
+        mes_cobranca = None
+        ano_cobranca = None
+        if primeiro_dia_mes.month == ultimo_dia_mes.month and primeiro_dia_mes.year == ultimo_dia_mes.year:
+            mes_cobranca = primeiro_dia_mes.month
+            ano_cobranca = primeiro_dia_mes.year
+        elif mes and ano:
+            mes_cobranca = mes
+            ano_cobranca = ano
+
+        if mes_cobranca and ano_cobranca:
+            if forma_pagamento_id_arg:
+                cobranca_id = _upsert_cobranca_mensal_relatorio(cursor, id, mes_cobranca, ano_cobranca, total_geral)
+                cursor.execute('SELECT * FROM cobrancas_mensais WHERE id = %s', (cobranca_id,))
+                cobranca_atual = cursor.fetchone()
+                status_persist = (cobranca_atual.get('status') if cobranca_atual else '') or 'Aguardando Pagamento'
+                cursor.execute('SELECT id, nome, tipo FROM formas_pagamento WHERE id = %s', (forma_pagamento_id_arg,))
+                forma_pagamento = cursor.fetchone()
+
+                if forma_pagamento:
+                    desconto_percentual_persist = 0.0
+                    desconto_valor_final_persist = 0.0
+                    desconto_tipo_persist = desconto_tipo_arg or None
+
+                    if desconto_tipo_persist == 'percentual':
+                        desconto_percentual_persist = max(0.0, min(100.0, desconto_valor_arg))
+                        desconto_valor_final_persist = (total_geral * desconto_percentual_persist) / 100.0
+                    elif desconto_tipo_persist == 'fixo':
+                        desconto_valor_final_persist = max(0.0, desconto_valor_arg)
+                    else:
+                        desconto_tipo_persist = None
+
+                    total_liquido_persist = max(total_geral - desconto_valor_final_persist, 0.0)
+                    eh_parcelado = (forma_pagamento.get('tipo') or '') == 'Parcelado' and parcelas_arg > 1
+
+                    cursor.execute('DELETE FROM cobrancas_mensais_parcelas WHERE cobranca_id = %s', (cobranca_id,))
+
+                    if eh_parcelado:
+                        for numero_parcela in range(1, parcelas_arg + 1):
+                            vencimento = datetime.strptime(data_primeira_parcela_arg, '%Y-%m-%d').date() + timedelta(days=30 * (numero_parcela - 1))
+                            data_pagamento_parcela = vencimento if status_persist == 'Paga' else None
+                            cursor.execute('''
+                                INSERT INTO cobrancas_mensais_parcelas (cobranca_id, numero_parcela, valor_parcela, data_vencimento, data_pagamento)
+                                VALUES (%s, %s, %s, %s, %s)
+                            ''', (cobranca_id, numero_parcela, total_liquido_persist / parcelas_arg, vencimento, data_pagamento_parcela))
+                        data_pagamento_persist = None
+                        data_primeira_persist = datetime.strptime(data_primeira_parcela_arg, '%Y-%m-%d').date() if data_primeira_parcela_arg else None
+                    else:
+                        data_pagamento_persist = datetime.strptime(data_pagamento_arg, '%Y-%m-%d').date() if data_pagamento_arg else None
+                        data_primeira_persist = None
+                        data_pagamento_parcela = data_pagamento_persist if status_persist == 'Paga' else None
+                        if data_pagamento_persist:
+                            cursor.execute('''
+                                INSERT INTO cobrancas_mensais_parcelas (cobranca_id, numero_parcela, valor_parcela, data_vencimento, data_pagamento)
+                                VALUES (%s, 1, %s, %s, %s)
+                            ''', (cobranca_id, total_liquido_persist, data_pagamento_persist, data_pagamento_parcela))
+
+                    cursor.execute('''
+                        UPDATE cobrancas_mensais
+                        SET forma_pagamento_id = %s,
+                            parcelas = %s,
+                            data_pagamento = %s,
+                            data_primeira_parcela = %s,
+                            status = %s,
+                            desconto_tipo = %s,
+                            desconto_valor = %s,
+                            desconto_percentual = %s,
+                            total_bruto = %s,
+                            total_liquido = %s,
+                            updated_at = CURRENT_TIMESTAMP
+                        WHERE id = %s
+                    ''', (
+                        forma_pagamento_id_arg,
+                        parcelas_arg if eh_parcelado else 1,
+                        data_pagamento_persist,
+                        data_primeira_persist,
+                        status_persist,
+                        desconto_tipo_persist,
+                        desconto_valor_final_persist,
+                        desconto_percentual_persist,
+                        total_geral,
+                        total_liquido_persist,
+                        cobranca_id
+                    ))
+                    conn.commit()
+                    configuracao_persistida_por_args = True
+
+            cursor.execute('''
+                SELECT cm.*, fp.nome AS forma_pagamento_nome, fp.tipo AS forma_pagamento_tipo
+                FROM cobrancas_mensais cm
+                LEFT JOIN formas_pagamento fp ON fp.id = cm.forma_pagamento_id
+                WHERE cm.cliente_id = %s AND cm.mes = %s AND cm.ano = %s
+            ''', (id, mes_cobranca, ano_cobranca))
+            cobranca_mensal = cursor.fetchone()
+
+            if cobranca_mensal:
+                desconto_mensal_tipo = (cobranca_mensal.get('desconto_tipo') or '').strip() or None
+                desconto_mensal_valor = float(cobranca_mensal.get('desconto_valor') or 0)
+                desconto_mensal_percentual = float(cobranca_mensal.get('desconto_percentual') or 0)
+                total_geral = float(cobranca_mensal.get('total_liquido') or total_geral)
+                pagamento = {
+                    'forma_pagamento_nome': cobranca_mensal.get('forma_pagamento_nome'),
+                    'forma_pagamento_tipo': cobranca_mensal.get('forma_pagamento_tipo'),
+                    'parcelas': cobranca_mensal.get('parcelas') or 1,
+                    'data_pagamento': cobranca_mensal.get('data_pagamento'),
+                    'data_primeira_parcela': cobranca_mensal.get('data_primeira_parcela'),
+                    'status': cobranca_mensal.get('status')
+                }
+
+        if desconto_tipo_arg and not configuracao_persistida_por_args:
+            if desconto_tipo_arg == 'percentual':
+                desconto_mensal_percentual = max(0.0, min(100.0, desconto_valor_arg))
+                desconto_mensal_valor = (total_geral * desconto_mensal_percentual) / 100.0
+                desconto_mensal_tipo = 'percentual'
+            elif desconto_tipo_arg == 'fixo':
+                desconto_mensal_valor = max(0.0, desconto_valor_arg)
+                desconto_mensal_percentual = 0.0
+                desconto_mensal_tipo = 'fixo'
+            else:
+                desconto_mensal_tipo = None
+                desconto_mensal_valor = 0.0
+                desconto_mensal_percentual = 0.0
+            total_geral = max(total_geral - desconto_mensal_valor, 0.0)
+
+        if forma_pagamento_id_arg and not configuracao_persistida_por_args:
+            cursor.execute('SELECT id, nome, tipo FROM formas_pagamento WHERE id = %s', (forma_pagamento_id_arg,))
+            forma_pagamento = cursor.fetchone()
+            if forma_pagamento:
+                eh_parcelado = (forma_pagamento.get('tipo') or '') == 'Parcelado' and parcelas_arg > 1
+                status_pagamento = (pagamento.get('status') if pagamento else '') or 'Aguardando Pagamento'
+                pagamento = {
+                    'forma_pagamento_nome': forma_pagamento.get('nome'),
+                    'forma_pagamento_tipo': forma_pagamento.get('tipo'),
+                    'parcelas': parcelas_arg if eh_parcelado else 1,
+                    'data_pagamento': data_pagamento_arg or None,
+                    'data_primeira_parcela': data_primeira_parcela_arg or None,
+                    'status': status_pagamento
+                }
         
         conn.close()
         
         # Preparar dados para o PDF
-        mes_ano_str = f"{mes:02d}/{ano}"
+        if data_inicio_raw and data_fim_raw:
+            mes_ano_str = f"{primeiro_dia_mes.strftime('%d/%m/%Y')} a {ultimo_dia_mes.strftime('%d/%m/%Y')}"
+            nome_periodo = f"{primeiro_dia_mes.strftime('%Y%m%d')}_{ultimo_dia_mes.strftime('%Y%m%d')}"
+        else:
+            mes_ano_str = f"{mes:02d}/{ano}"
+            nome_periodo = f"{mes:02d}_{ano}"
         report_data = {
             'cliente': {
                 'id': cliente['id'],
                 'nome': cliente['nome'],
                 'cnpj_cpf': cliente.get('cnpj_cpf'),
+                'inscricao_estadual': cliente.get('inscricao_estadual'),
                 'endereco': cliente.get('endereco'),
                 'telefone': cliente.get('telefone'),
                 'email': cliente.get('email')
@@ -462,15 +691,19 @@ def relatorio_mensal(id):
                 'impostos': total_impostos,
                 'bdi': total_bdi,
                 'descontos': total_descontos,
+                'desconto_mensal_tipo': desconto_mensal_tipo,
+                'desconto_mensal_valor': desconto_mensal_valor,
+                'desconto_mensal_percentual': desconto_mensal_percentual,
                 'geral': total_geral
-            }
+            },
+            'pagamento': pagamento
         }
         
         # Gerar PDF
         pdf_generator = OrderPDFGenerator()
         output_path = pdf_generator.generate_relatorio_mensal_cliente(report_data)
         
-        return send_file(output_path, as_attachment=True, download_name=f'Relatorio_Mensal_{cliente["nome"]}_{mes:02d}_{ano}.pdf')
+        return send_file(output_path, as_attachment=True, download_name=f'Relatorio_Mensal_{cliente["nome"]}_{nome_periodo}.pdf')
         
     except Exception as e:
         flash(f'Erro ao gerar relatório: {e}', 'danger')

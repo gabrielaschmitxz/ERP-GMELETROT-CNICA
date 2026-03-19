@@ -4,7 +4,7 @@
 
 {% block content %}
 <h2 class="mb-4">
-    <i class="bi bi-{% if cliente %}pencil{% else %}plus-circle{% endif %}"></i> 
+    <i class="bi bi-{% if cliente %}pencil{% else %}plus-circle{% endif %}"></i>
     {% if cliente %}Editar{% else %}Novo{% endif %} Cliente
 </h2>
 
@@ -14,28 +14,36 @@
             <div class="row">
                 <div class="col-md-6 mb-3">
                     <label for="nome" class="form-label">Nome/Razão Social *</label>
-                    <input type="text" class="form-control" id="nome" name="nome" 
+                    <input type="text" class="form-control" id="nome" name="nome"
                            value="{{ cliente.nome if cliente else '' }}" required>
                 </div>
                 <div class="col-md-6 mb-3">
                     <label for="cnpj_cpf" class="form-label">CNPJ/CPF</label>
-                    <input type="text" class="form-control" id="cnpj_cpf" name="cnpj_cpf" 
-                           value="{{ cliente.cnpj_cpf if cliente else '' }}" 
+                    <input type="text" class="form-control" id="cnpj_cpf" name="cnpj_cpf"
+                           value="{{ cliente.cnpj_cpf if cliente else '' }}"
                            placeholder="000.000.000-00 ou 00.000.000/0000-00" maxlength="18">
                 </div>
             </div>
             <div class="row">
                 <div class="col-md-6 mb-3">
                     <label for="telefone" class="form-label">Telefone</label>
-                    <input type="text" class="form-control" id="telefone" name="telefone" 
-                           value="{{ cliente.telefone if cliente else '' }}" 
+                    <input type="text" class="form-control" id="telefone" name="telefone"
+                           value="{{ cliente.telefone if cliente else '' }}"
                            placeholder="(00) 00000-0000" maxlength="15">
                 </div>
                 <div class="col-md-6 mb-3">
                     <label for="email" class="form-label">Email</label>
-                    <input type="text" class="form-control" id="email" name="email" 
-                           value="{{ cliente.email if cliente else '' }}" 
+                    <input type="text" class="form-control" id="email" name="email"
+                           value="{{ cliente.email if cliente else '' }}"
                            placeholder="email@exemplo.com">
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label for="inscricao_estadual" class="form-label">Inscrição Estadual / Nº</label>
+                    <input type="text" class="form-control" id="inscricao_estadual" name="inscricao_estadual"
+                           value="{{ cliente.inscricao_estadual if cliente else '' }}"
+                           placeholder="000.000.000.000-00" maxlength="18">
                 </div>
             </div>
             <div class="mb-3">
@@ -71,7 +79,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 return value.replace(/^(\d{3})(\d{3})(\d{3})(\d{0,2})/, '$1.$2.$3-$4');
             }
         }
-        
+
         // Função para formatar CNPJ
         function formatarCNPJ(value) {
             if (value.length <= 2) {
@@ -86,7 +94,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 return value.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{0,2})/, '$1.$2.$3/$4-$5');
             }
         }
-        
+
         // Aplicar máscara ao carregar se já tiver valor
         if (cnpjCpfInput.value) {
             let value = cnpjCpfInput.value.replace(/\D/g, '');
@@ -96,10 +104,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 cnpjCpfInput.value = formatarCNPJ(value);
             }
         }
-        
+
         cnpjCpfInput.addEventListener('input', function(e) {
             let value = e.target.value.replace(/\D/g, '');
-            
+
             // Se tiver 11 dígitos ou menos, aplica máscara de CPF
             if (value.length <= 11) {
                 e.target.value = formatarCPF(value);
@@ -112,7 +120,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     }
-    
+
     // Máscara para Telefone (começando pelo DDD)
     const telefoneInput = document.getElementById('telefone');
     if (telefoneInput) {
@@ -125,15 +133,15 @@ document.addEventListener('DOMContentLoaded', function() {
                 telefoneInput.value = value.replace(/^(\d{2})(\d{5})(\d{4})$/, '($1) $2-$3');
             }
         }
-        
+
         telefoneInput.addEventListener('input', function(e) {
             let value = e.target.value.replace(/\D/g, '');
-            
+
             // Limita a 11 dígitos (celular)
             if (value.length > 11) {
                 value = value.substring(0, 11);
             }
-            
+
             // Aplica máscara conforme o usuário digita
             if (value.length <= 2) {
                 e.target.value = value.length > 0 ? '(' + value : '';
@@ -149,7 +157,27 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     }
+
+    // Máscara para Inscrição Estadual (formato genérico)
+    const inscricaoInput = document.getElementById('inscricao_estadual');
+    if (inscricaoInput) {
+        function formatarInscricaoEstadual(value) {
+            const digits = value.replace(/\D/g, '').substring(0, 14);
+            if (digits.length <= 3) return digits;
+            if (digits.length <= 6) return digits.replace(/^(\d{3})(\d{0,3})/, '$1.$2');
+            if (digits.length <= 9) return digits.replace(/^(\d{3})(\d{3})(\d{0,3})/, '$1.$2.$3');
+            if (digits.length <= 12) return digits.replace(/^(\d{3})(\d{3})(\d{3})(\d{0,3})/, '$1.$2.$3.$4');
+            return digits.replace(/^(\d{3})(\d{3})(\d{3})(\d{3})(\d{0,2})/, '$1.$2.$3.$4-$5');
+        }
+
+        if (inscricaoInput.value) {
+            inscricaoInput.value = formatarInscricaoEstadual(inscricaoInput.value);
+        }
+
+        inscricaoInput.addEventListener('input', function(e) {
+            e.target.value = formatarInscricaoEstadual(e.target.value);
+        });
+    }
 });
 </script>
 {% endblock %}
-

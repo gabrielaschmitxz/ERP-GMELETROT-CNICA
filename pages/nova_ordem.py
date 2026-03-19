@@ -83,7 +83,7 @@ def show():
                             cursor = conn.cursor()
                             cursor.execute("""
                                 INSERT INTO clientes (nome, cnpj_cpf, endereco, telefone, email)
-                                VALUES (?, ?, ?, ?, ?)
+                                VALUES (, , , , )
                             """, (novo_nome, novo_cnpj_cpf, novo_endereco, novo_telefone, novo_email))
                             conn.commit()
                             conn.close()
@@ -486,7 +486,7 @@ def show():
                     INSERT INTO ordens_servico 
                     (cliente_id, data, endereco_origem, endereco_destino, km, valor_deslocamento, 
                      forma_pagamento_id, total, status)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    VALUES (, , , , , , , , )
                 """, (cliente_id, datetime.now().strftime('%Y-%m-%d'), 
                      endereco_origem, endereco_destino, km, valor_deslocamento,
                      forma_pagamento_options[forma_pagamento_selecionada], total_final, 'Nova'))
@@ -498,7 +498,7 @@ def show():
                     cursor.execute("""
                         INSERT INTO itens_servico 
                         (ordem_id, servico_id, descricao, qtd, valor_unit, valor_total)
-                        VALUES (?, ?, ?, ?, ?, ?)
+                        VALUES (, , , , , )
                     """, (ordem_id, servico['servico_id'], servico['descricao'], 
                          servico['qtd'], servico['valor_unit'], servico['valor_total']))
                 
@@ -507,7 +507,7 @@ def show():
                     cursor.execute("""
                         INSERT INTO itens_material 
                         (ordem_id, material_id, descricao, qtd, valor_unit, valor_total)
-                        VALUES (?, ?, ?, ?, ?, ?)
+                        VALUES (, , , , , )
                     """, (ordem_id, material['material_id'], material['descricao'], 
                          material['qtd'], material['valor_unit'], material['valor_total']))
                 
@@ -515,7 +515,7 @@ def show():
                 for adicional in st.session_state.adicionais:
                     cursor.execute("""
                         INSERT INTO adicionais (ordem_id, tipo, descricao, valor)
-                        VALUES (?, ?, ?, ?)
+                        VALUES (, , , )
                     """, (ordem_id, adicional['tipo'], adicional['descricao'], adicional['valor']))
                 
                 conn.commit()

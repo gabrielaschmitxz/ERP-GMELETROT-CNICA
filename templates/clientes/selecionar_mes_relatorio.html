@@ -1,43 +1,81 @@
-{% extends "base.html" %}
+﻿{% extends "base.html" %}
 
-{% block title %}Selecionar Mês - Relatório Mensal{% endblock %}
+{% block title %}Selecionar Periodo - Relatorio Mensal{% endblock %}
 
 {% block content %}
-<h2 class="mb-4"><i class="bi bi-calendar-month"></i> Selecionar Mês para Relatório Mensal</h2>
+<h2 class="mb-4"><i class="bi bi-calendar-month"></i> Selecionar Periodo para Relatorio Mensal</h2>
 
 <div class="card">
     <div class="card-body">
         <h5 class="card-title">Cliente: {{ cliente.nome }}</h5>
-        
+
         <form method="POST" action="{{ url_for('clientes.selecionar_mes_relatorio', id=cliente.id) }}">
+            <input type="hidden" id="data_inicio" name="data_inicio" value="{{ data_inicio_atual if data_inicio_atual is defined else '' }}">
+            <input type="hidden" id="data_fim" name="data_fim" value="{{ data_fim_atual if data_fim_atual is defined else '' }}">
+
             <div class="row mb-3">
                 <div class="col-md-6">
-                    <label for="mes" class="form-label">Mês</label>
-                    <select class="form-select" id="mes" name="mes" required>
-                        <option value="1" {% if mes_atual == 1 %}selected{% endif %}>Janeiro</option>
-                        <option value="2" {% if mes_atual == 2 %}selected{% endif %}>Fevereiro</option>
-                        <option value="3" {% if mes_atual == 3 %}selected{% endif %}>Março</option>
-                        <option value="4" {% if mes_atual == 4 %}selected{% endif %}>Abril</option>
-                        <option value="5" {% if mes_atual == 5 %}selected{% endif %}>Maio</option>
-                        <option value="6" {% if mes_atual == 6 %}selected{% endif %}>Junho</option>
-                        <option value="7" {% if mes_atual == 7 %}selected{% endif %}>Julho</option>
-                        <option value="8" {% if mes_atual == 8 %}selected{% endif %}>Agosto</option>
-                        <option value="9" {% if mes_atual == 9 %}selected{% endif %}>Setembro</option>
-                        <option value="10" {% if mes_atual == 10 %}selected{% endif %}>Outubro</option>
-                        <option value="11" {% if mes_atual == 11 %}selected{% endif %}>Novembro</option>
-                        <option value="12" {% if mes_atual == 12 %}selected{% endif %}>Dezembro</option>
-                    </select>
-                </div>
-                <div class="col-md-6">
-                    <label for="ano" class="form-label">Ano</label>
-                    <input type="number" class="form-control" id="ano" name="ano" 
-                           value="{{ ano_atual }}" min="2020" max="2100" required>
+                    <label for="filtroData" class="form-label">
+                        <i class="bi bi-calendar-range"></i> Filtrar por Periodo
+                    </label>
+                    <div class="input-group">
+                        <input type="text" class="form-control" id="filtroData" inputmode="numeric" autocomplete="off" placeholder="dd/mm/aaaa a dd/mm/aaaa">
+                        <button class="btn btn-outline-secondary" type="button" id="btnAbrirCalendario" aria-label="Abrir calendario">
+                            <i class="bi bi-calendar3"></i>
+                        </button>
+                    </div>
+                    <input type="text" id="filtroDataPicker" tabindex="-1" aria-hidden="true" style="position:absolute; opacity:0; pointer-events:none; width:1px; height:1px; border:0; padding:0;">
                 </div>
             </div>
-            
+
+            <hr>
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label for="forma_pagamento_id" class="form-label">Forma de Pagamento (Relatorio Mensal)</label>
+                    <select class="form-select" id="forma_pagamento_id" name="forma_pagamento_id" required>
+                        <option value="">Selecione...</option>
+                        {% for forma in formas_pagamento %}
+                        <option value="{{ forma.id }}" data-tipo="{{ forma.tipo or '' }}">{{ forma.nome }}</option>
+                        {% endfor %}
+                    </select>
+                    <div class="form-text">A forma de pagamento precisa ser informada antes da emissao do PDF.</div>
+                </div>
+                <div class="col-md-3 pagamento-avista-campos" style="display: none;">
+                    <label for="data_pagamento" class="form-label">Data do Pagamento</label>
+                    <input type="date" class="form-control" id="data_pagamento" name="data_pagamento">
+                </div>
+            </div>
+
+            <div class="row mb-3 pagamento-parcelado-campos" style="display: none;">
+                <div class="col-md-3">
+                    <label for="data_primeira_parcela" class="form-label">1o Pagamento</label>
+                    <input type="date" class="form-control" id="data_primeira_parcela" name="data_primeira_parcela">
+                    <div class="form-text">Para parcelado, a proxima parcela vence a cada 30 dias.</div>
+                </div>
+                <div class="col-md-3">
+                    <label for="parcelas" class="form-label">Parcelas</label>
+                    <input type="number" class="form-control" id="parcelas" name="parcelas" value="1" min="1">
+                </div>
+            </div>
+
+            <div class="row mb-3">
+                <div class="col-md-3">
+                    <label for="desconto_tipo" class="form-label">Desconto no periodo</label>
+                    <select class="form-select" id="desconto_tipo" name="desconto_tipo">
+                        <option value="">Sem desconto</option>
+                        <option value="fixo">Valor fixo</option>
+                        <option value="percentual">Porcentagem (%)</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label for="desconto_valor" class="form-label">Valor</label>
+                    <input type="number" step="0.01" min="0" class="form-control" id="desconto_valor" name="desconto_valor" value="0">
+                </div>
+            </div>
+
             <div class="d-flex gap-2">
                 <button type="submit" class="btn btn-primary">
-                    <i class="bi bi-file-earmark-pdf"></i> Gerar Relatório
+                    <i class="bi bi-file-earmark-pdf"></i> Gerar Relatorio
                 </button>
                 <a href="{{ url_for('clientes.listar') }}" class="btn btn-secondary">
                     <i class="bi bi-arrow-left"></i> Voltar
@@ -46,4 +84,250 @@
         </form>
     </div>
 </div>
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+<script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/pt.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const separadorPeriodo = ' a ';
+    let flatpickrInstance = null;
+    const filtroDataElement = document.getElementById('filtroData');
+    const filtroDataPickerElement = document.getElementById('filtroDataPicker');
+    const btnAbrirCalendario = document.getElementById('btnAbrirCalendario');
+    const dataInicioInput = document.getElementById('data_inicio');
+    const dataFimInput = document.getElementById('data_fim');
+    const form = document.querySelector('form');
+    const descontoTipo = document.getElementById('desconto_tipo');
+    const descontoValor = document.getElementById('desconto_valor');
+    const formaPagamentoSelect = document.getElementById('forma_pagamento_id');
+    const avistaCampos = document.querySelectorAll('.pagamento-avista-campos');
+    const parceladoCampos = document.querySelectorAll('.pagamento-parcelado-campos');
+    const dataPagamentoInput = document.getElementById('data_pagamento');
+    const parcelasInput = document.getElementById('parcelas');
+    const dataPrimeiraParcelaInput = document.getElementById('data_primeira_parcela');
+
+    function formatarDataInput(valor) {
+        const numeros = (valor || '').replace(/\D/g, '').slice(0, 16);
+        const primeiraData = numeros.slice(0, 8);
+        const segundaData = numeros.slice(8, 16);
+
+        function aplicarMascaraData(dataNumerica) {
+            let resultado = dataNumerica;
+            if (resultado.length > 2) resultado = resultado.slice(0, 2) + '/' + resultado.slice(2);
+            if (resultado.length > 5) resultado = resultado.slice(0, 5) + '/' + resultado.slice(5);
+            return resultado;
+        }
+
+        let valorFormatado = aplicarMascaraData(primeiraData);
+        if (segundaData.length > 0) {
+            valorFormatado += separadorPeriodo + aplicarMascaraData(segundaData);
+        }
+        return valorFormatado;
+    }
+
+    function parseDataBR(valor) {
+        if (!/^\d{2}\/\d{2}\/\d{4}$/.test(valor)) return null;
+        const partes = valor.split('/');
+        const dia = parseInt(partes[0], 10);
+        const mes = parseInt(partes[1], 10) - 1;
+        const ano = parseInt(partes[2], 10);
+        const data = new Date(ano, mes, dia);
+        if (data.getFullYear() !== ano || data.getMonth() !== mes || data.getDate() !== dia) return null;
+        return data;
+    }
+
+    function formatarDataISO(data) {
+        const ano = data.getFullYear();
+        const mes = String(data.getMonth() + 1).padStart(2, '0');
+        const dia = String(data.getDate()).padStart(2, '0');
+        return ano + '-' + mes + '-' + dia;
+    }
+
+    function formatarDataBRDesdeISO(valorIso) {
+        if (!valorIso) return '';
+        const partes = valorIso.split('-');
+        if (partes.length !== 3) return '';
+        return partes[2] + '/' + partes[1] + '/' + partes[0];
+    }
+
+    function obterPeriodoDoCampo() {
+        const valor = filtroDataElement.value.trim();
+        if (!valor) return null;
+        const datasEncontradas = valor.match(/\d{2}\/\d{2}\/\d{4}/g);
+        if (!datasEncontradas || datasEncontradas.length < 2) return null;
+
+        let dataInicio = parseDataBR(datasEncontradas[0]);
+        let dataFim = parseDataBR(datasEncontradas[1]);
+        if (!dataInicio || !dataFim) return null;
+
+        if (dataInicio > dataFim) {
+            const troca = dataInicio;
+            dataInicio = dataFim;
+            dataFim = troca;
+        }
+
+        return {
+            inicio: formatarDataISO(dataInicio),
+            fim: formatarDataISO(dataFim),
+            datas: [dataInicio, dataFim]
+        };
+    }
+
+    if (filtroDataPickerElement) {
+        flatpickrInstance = flatpickr(filtroDataPickerElement, {
+            mode: 'range',
+            dateFormat: 'd/m/Y',
+            locale: 'pt',
+            allowInput: false,
+            clickOpens: false,
+            disableMobile: true,
+            conjunction: separadorPeriodo,
+            onChange: function(selectedDates) {
+                if (selectedDates.length === 2) {
+                    filtroDataElement.value =
+                        flatpickr.formatDate(selectedDates[0], 'd/m/Y') +
+                        separadorPeriodo +
+                        flatpickr.formatDate(selectedDates[1], 'd/m/Y');
+                    dataInicioInput.value = formatarDataISO(selectedDates[0]);
+                    dataFimInput.value = formatarDataISO(selectedDates[1]);
+                }
+            }
+        });
+    }
+
+    if (filtroDataElement) {
+        if (dataInicioInput.value && dataFimInput.value) {
+            filtroDataElement.value = formatarDataBRDesdeISO(dataInicioInput.value) + separadorPeriodo + formatarDataBRDesdeISO(dataFimInput.value);
+        }
+
+        filtroDataElement.addEventListener('input', function(event) {
+            const valorFormatado = formatarDataInput(event.target.value);
+            if (event.target.value !== valorFormatado) {
+                event.target.value = valorFormatado;
+            }
+        });
+
+        filtroDataElement.addEventListener('blur', function() {
+            const periodo = obterPeriodoDoCampo();
+            if (!periodo) return;
+            dataInicioInput.value = periodo.inicio;
+            dataFimInput.value = periodo.fim;
+            if (flatpickrInstance) {
+                flatpickrInstance.setDate(periodo.datas, false, 'd/m/Y');
+            }
+            filtroDataElement.value =
+                flatpickr.formatDate(periodo.datas[0], 'd/m/Y') +
+                separadorPeriodo +
+                flatpickr.formatDate(periodo.datas[1], 'd/m/Y');
+        });
+    }
+
+    if (btnAbrirCalendario) {
+        btnAbrirCalendario.addEventListener('click', function() {
+            if (flatpickrInstance) {
+                flatpickrInstance.open();
+            }
+        });
+    }
+
+    if (form) {
+        form.addEventListener('submit', function(event) {
+            const periodo = obterPeriodoDoCampo();
+            if (!periodo) {
+                event.preventDefault();
+                alert('Informe um periodo completo no formato DD/MM/AAAA a DD/MM/AAAA ou selecione as duas datas no calendario.');
+                return;
+            }
+
+            if (!formaPagamentoSelect.value) {
+                event.preventDefault();
+                alert('Informe a forma de pagamento antes de emitir o PDF.');
+                return;
+            }
+            dataInicioInput.value = periodo.inicio;
+            dataFimInput.value = periodo.fim;
+        });
+    }
+
+    function ajustarDescontoUI() {
+        if (!descontoTipo.value) {
+            descontoValor.value = 0;
+            descontoValor.disabled = true;
+            return;
+        }
+        descontoValor.disabled = false;
+        if (descontoTipo.value === 'percentual') {
+            descontoValor.max = 100;
+        } else {
+            descontoValor.removeAttribute('max');
+        }
+    }
+
+    descontoTipo.addEventListener('change', ajustarDescontoUI);
+    ajustarDescontoUI();
+
+    if (dataPrimeiraParcelaInput && !dataPrimeiraParcelaInput.value) {
+        const hoje = new Date();
+        const ano = hoje.getFullYear();
+        const mes = String(hoje.getMonth() + 1).padStart(2, '0');
+        const dia = String(hoje.getDate()).padStart(2, '0');
+        dataPrimeiraParcelaInput.value = `${ano}-${mes}-${dia}`;
+    }
+
+    if (dataPagamentoInput && !dataPagamentoInput.value) {
+        const hoje = new Date();
+        const ano = hoje.getFullYear();
+        const mes = String(hoje.getMonth() + 1).padStart(2, '0');
+        const dia = String(hoje.getDate()).padStart(2, '0');
+        dataPagamentoInput.value = `${ano}-${mes}-${dia}`;
+    }
+
+    function ajustarPagamentoUI() {
+        if (!formaPagamentoSelect) return;
+        const option = formaPagamentoSelect.options[formaPagamentoSelect.selectedIndex];
+        const ehParcelado = !!option && option.value && (option.dataset.tipo || '') === 'Parcelado';
+
+        avistaCampos.forEach(function(campo) {
+            campo.style.display = ehParcelado ? 'none' : (formaPagamentoSelect.value ? '' : 'none');
+        });
+        parceladoCampos.forEach(function(campo) {
+            campo.style.display = ehParcelado ? '' : 'none';
+        });
+
+        if (dataPagamentoInput) {
+            dataPagamentoInput.required = !!formaPagamentoSelect.value && !ehParcelado;
+            if (ehParcelado) {
+                dataPagamentoInput.value = '';
+            } else if (!dataPagamentoInput.value && formaPagamentoSelect.value) {
+                const hoje = new Date();
+                dataPagamentoInput.value = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, '0')}-${String(hoje.getDate()).padStart(2, '0')}`;
+            }
+        }
+
+        if (dataPrimeiraParcelaInput) {
+            dataPrimeiraParcelaInput.required = ehParcelado;
+            if (ehParcelado && !dataPrimeiraParcelaInput.value) {
+                const hoje = new Date();
+                dataPrimeiraParcelaInput.value = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, '0')}-${String(hoje.getDate()).padStart(2, '0')}`;
+            } else if (!ehParcelado) {
+                dataPrimeiraParcelaInput.value = '';
+            }
+        }
+
+        if (parcelasInput) {
+            parcelasInput.required = ehParcelado;
+            parcelasInput.min = 1;
+            if (!ehParcelado) {
+                parcelasInput.value = 1;
+            }
+        }
+    }
+
+    if (formaPagamentoSelect) {
+        formaPagamentoSelect.addEventListener('change', ajustarPagamentoUI);
+        ajustarPagamentoUI();
+    }
+});
+</script>
 {% endblock %}

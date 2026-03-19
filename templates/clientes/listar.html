@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+﻿{% extends "base.html" %}
 
 {% block title %}Clientes - ERP Eletrotécnica{% endblock %}
 
@@ -7,17 +7,21 @@
 
 <div class="card">
     <div class="card-body">
-        <div class="row mb-3">
-            <div class="col-md-6">
-                <form method="GET" class="d-flex">
-                    <input type="text" class="form-control me-2" name="search" 
-                           value="{{ search }}" placeholder="Buscar cliente...">
-                    <button type="submit" class="btn btn-primary">
-                        <i class="bi bi-search"></i> Buscar
-                    </button>
+        <div class="row mb-3 g-2 align-items-end">
+            <div class="col-md-8">
+                <form method="GET" class="row g-2">
+                    <div class="col-md-9">
+                        <input type="text" class="form-control form-control-sm" name="search"
+                               value="{{ search }}" placeholder="Buscar cliente...">
+                    </div>
+                    <div class="col-md-3 d-grid">
+                        <button type="submit" class="btn btn-primary btn-sm">
+                            <i class="bi bi-funnel"></i> Filtrar
+                        </button>
+                    </div>
                 </form>
             </div>
-            <div class="col-md-6 text-end">
+            <div class="col-md-4 text-end">
                 <a href="{{ url_for('clientes.novo') }}" class="btn btn-success">
                     <i class="bi bi-plus-circle"></i> Novo Cliente
                 </a>
@@ -25,14 +29,13 @@
         </div>
 
         <div class="table-responsive">
-            <table class="table table-hover">
+            <table class="table table-hover align-middle">
                 <thead>
                     <tr>
                         <th>ID</th>
                         <th>Nome</th>
                         <th>CNPJ/CPF</th>
                         <th>Telefone</th>
-                        <th>Email</th>
                         <th>Status</th>
                         <th>Ações</th>
                     </tr>
@@ -44,7 +47,6 @@
                         <td>{{ cliente.nome }}</td>
                         <td>{{ formatar_cpf_cnpj(cliente.cnpj_cpf) if cliente.cnpj_cpf else '-' }}</td>
                         <td>{{ formatar_telefone(cliente.telefone) if cliente.telefone else '-' }}</td>
-                        <td>{{ cliente.email or '-' }}</td>
                         <td>
                             <div class="d-flex align-items-center gap-2">
                                 {% if cliente.ativo %}
@@ -52,9 +54,9 @@
                                 {% else %}
                                     <span class="badge bg-secondary">Inativo</span>
                                 {% endif %}
-                                <form method="POST" action="{{ url_for('clientes.toggle_ativo', id=cliente.id) }}" 
-                                      class="d-inline" onsubmit="return confirm('Tem certeza que deseja {{ 'desativar' if cliente.ativo else 'ativar' }} este cliente?');">
-                                    <button type="submit" class="btn btn-sm btn-{{ 'secondary' if cliente.ativo else 'success' }}" 
+                                <form method="POST" action="{{ url_for('clientes.toggle_ativo', id=cliente.id) }}"
+                                      class="d-inline" onsubmit="return confirm('Tem certeza que deseja {{ 'desativar' if cliente.ativo else 'ativar' }} este cliente');">
+                                    <button type="submit" class="btn btn-sm btn-{{ 'secondary' if cliente.ativo else 'success' }}"
                                             title="{{ 'Desativar' if cliente.ativo else 'Ativar' }}">
                                         <i class="bi bi-{{ 'x-circle' if cliente.ativo else 'check-circle' }}"></i>
                                     </button>
@@ -63,16 +65,12 @@
                         </td>
                         <td>
                             <div class="d-flex gap-1">
-                                <a href="{{ url_for('clientes.editar', id=cliente.id) }}" 
+                                <a href="{{ url_for('clientes.editar', id=cliente.id) }}"
                                    class="btn btn-sm btn-primary">
                                     <i class="bi bi-pencil"></i> Editar
                                 </a>
-                                <a href="{{ url_for('clientes.selecionar_mes_relatorio', id=cliente.id) }}" 
-                                   class="btn btn-sm" style="background-color: #ff8c00; color: white; border-color: #ff8c00;" title="Relatório Mensal">
-                                    <i class="bi bi-file-earmark-pdf"></i> Rel. Mensal
-                                </a>
-                                <form method="POST" action="{{ url_for('clientes.excluir', id=cliente.id) }}" 
-                                      class="d-inline" onsubmit="return confirm('Deseja realmente excluir?');">
+                                <form method="POST" action="{{ url_for('clientes.excluir', id=cliente.id) }}"
+                                      class="d-inline" onsubmit="return confirm('Deseja realmente excluir');">
                                     <button type="submit" class="btn btn-sm btn-danger">
                                         <i class="bi bi-trash"></i> Excluir
                                     </button>
@@ -91,4 +89,3 @@
     </div>
 </div>
 {% endblock %}
-

@@ -52,13 +52,13 @@ def show_formas_pagamento():
                         # Verificar se a forma de pagamento é usada
                         conn = get_db_connection()
                         cursor = conn.cursor()
-                        cursor.execute("SELECT COUNT(*) FROM ordens_servico WHERE forma_pagamento_id = ?", (forma['id'],))
+                        cursor.execute("SELECT COUNT(*) FROM ordens_servico WHERE forma_pagamento_id = ", (forma['id'],))
                         count_uso = cursor.fetchone()[0]
                         
                         if count_uso > 0:
                             st.error(f"Não é possível excluir pois esta forma de pagamento é usada em {count_uso} ordem(ns) de serviço.")
                         else:
-                            cursor.execute("DELETE FROM formas_pagamento WHERE id = ?", (forma['id'],))
+                            cursor.execute("DELETE FROM formas_pagamento WHERE id = ", (forma['id'],))
                             conn.commit()
                             conn.close()
                             st.success(f"Forma de pagamento '{forma['nome']}' excluída!")
@@ -95,7 +95,7 @@ def show_formas_pagamento():
                 conn = get_db_connection()
                 cursor = conn.cursor()
                 
-                cursor.execute("SELECT id FROM formas_pagamento WHERE nome = ?", (nome,))
+                cursor.execute("SELECT id FROM formas_pagamento WHERE nome = ", (nome,))
                 if cursor.fetchone():
                     st.error("Forma de pagamento com mesmo nome já cadastrada!")
                     conn.close()
@@ -104,7 +104,7 @@ def show_formas_pagamento():
                 # Inserir forma de pagamento
                 cursor.execute("""
                     INSERT INTO formas_pagamento (nome, tipo, parcelas_max)
-                    VALUES (?, ?, ?)
+                    VALUES (, , )
                 """, (nome, tipo, parcelas_max))
                 
                 conn.commit()
@@ -163,7 +163,7 @@ def show_impostos():
                     if st.button("💾 Atualizar", key=f"update_imposto_{imposto['id']}"):
                         conn = get_db_connection()
                         cursor = conn.cursor()
-                        cursor.execute("UPDATE impostos_bdi SET valor = ? WHERE id = ?", (novo_valor, imposto['id']))
+                        cursor.execute("UPDATE impostos_bdi SET valor =  WHERE id = ", (novo_valor, imposto['id']))
                         conn.commit()
                         conn.close()
                         st.success(f"Valor do {imposto['descricao']} atualizado!")
@@ -199,7 +199,7 @@ def show_impostos():
                 conn = get_db_connection()
                 cursor = conn.cursor()
                 
-                cursor.execute("SELECT id FROM impostos_bdi WHERE tipo = 'imposto' AND descricao = ?", (descricao,))
+                cursor.execute("SELECT id FROM impostos_bdi WHERE tipo = 'imposto' AND descricao = ", (descricao,))
                 if cursor.fetchone():
                     st.error("Imposto com mesma descrição já cadastrado!")
                     conn.close()
@@ -208,7 +208,7 @@ def show_impostos():
                 # Inserir imposto
                 cursor.execute("""
                     INSERT INTO impostos_bdi (tipo, descricao, valor)
-                    VALUES (?, ?, ?)
+                    VALUES (, , )
                 """, ('imposto', descricao, valor))
                 
                 conn.commit()
@@ -271,7 +271,7 @@ def show_bdi():
                     if st.button("💾 Atualizar", key=f"update_bdi_{bdi['id']}"):
                         conn = get_db_connection()
                         cursor = conn.cursor()
-                        cursor.execute("UPDATE impostos_bdi SET valor = ? WHERE id = ?", (novo_valor, bdi['id']))
+                        cursor.execute("UPDATE impostos_bdi SET valor =  WHERE id = ", (novo_valor, bdi['id']))
                         conn.commit()
                         conn.close()
                         st.success(f"Valor do {bdi['descricao']} atualizado!")
@@ -313,7 +313,7 @@ def show_bdi():
                 conn = get_db_connection()
                 cursor = conn.cursor()
                 
-                cursor.execute("SELECT id FROM impostos_bdi WHERE tipo = 'bdi' AND descricao = ?", (descricao,))
+                cursor.execute("SELECT id FROM impostos_bdi WHERE tipo = 'bdi' AND descricao = ", (descricao,))
                 if cursor.fetchone():
                     st.error("BDI com mesma descrição já cadastrado!")
                     conn.close()
@@ -322,7 +322,7 @@ def show_bdi():
                 # Inserir BDI
                 cursor.execute("""
                     INSERT INTO impostos_bdi (tipo, descricao, valor)
-                    VALUES (?, ?, ?)
+                    VALUES (, , )
                 """, ('bdi', descricao, valor))
                 
                 conn.commit()

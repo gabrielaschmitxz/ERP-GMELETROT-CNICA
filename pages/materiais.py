@@ -46,7 +46,7 @@ def show_materiais_list():
     params = []
     
     if search_term:
-        query += " WHERE nome LIKE ? OR marca LIKE ?"
+        query += " WHERE nome LIKE  OR marca LIKE "
         params.extend([f"%{search_term}%", f"%{search_term}%"])
     
     if sort_by == "Nome":
@@ -176,7 +176,7 @@ def show_novo_material():
                 conn = get_db_connection()
                 cursor = conn.cursor()
                 
-                cursor.execute("SELECT id FROM materiais WHERE nome = ? AND marca = ?", (nome, marca))
+                cursor.execute("SELECT id FROM materiais WHERE nome =  AND marca = ", (nome, marca))
                 if cursor.fetchone():
                     st.error("Material com mesmo nome e marca já cadastrado!")
                     conn.close()
@@ -185,7 +185,7 @@ def show_novo_material():
                 # Inserir material
                 cursor.execute("""
                     INSERT INTO materiais (nome, marca, quantidade, preco_unit)
-                    VALUES (?, ?, ?, ?)
+                    VALUES (, , , )
                 """, (nome, marca, quantidade, preco_unit))
                 
                 conn.commit()
@@ -266,7 +266,7 @@ def show_editar_material():
                 conn = get_db_connection()
                 cursor = conn.cursor()
                 
-                cursor.execute("SELECT id FROM materiais WHERE nome = ? AND marca = ? AND id != ?", 
+                cursor.execute("SELECT id FROM materiais WHERE nome =  AND marca =  AND id != ", 
                              (nome, marca, material_id))
                 if cursor.fetchone():
                     st.error("Material com mesmo nome e marca já cadastrado!")
@@ -276,8 +276,8 @@ def show_editar_material():
                 # Atualizar material
                 cursor.execute("""
                     UPDATE materiais 
-                    SET nome = ?, marca = ?, quantidade = ?, preco_unit = ?
-                    WHERE id = ?
+                    SET nome = , marca = , quantidade = , preco_unit = 
+                    WHERE id = 
                 """, (nome, marca, quantidade, preco_unit, material_id))
                 
                 conn.commit()
@@ -290,14 +290,14 @@ def show_editar_material():
             # Verificar se o material é usado em ordens de serviço
             conn = get_db_connection()
             cursor = conn.cursor()
-            cursor.execute("SELECT COUNT(*) FROM itens_material WHERE material_id = ?", (material_id,))
+            cursor.execute("SELECT COUNT(*) FROM itens_material WHERE material_id = ", (material_id,))
             count_uso = cursor.fetchone()[0]
             
             if count_uso > 0:
                 st.error(f"Não é possível excluir o material pois ele é usado em {count_uso} ordem(ns) de serviço.")
             else:
                 # Excluir material
-                cursor.execute("DELETE FROM materiais WHERE id = ?", (material_id,))
+                cursor.execute("DELETE FROM materiais WHERE id = ", (material_id,))
                 conn.commit()
                 conn.close()
                 

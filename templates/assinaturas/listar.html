@@ -74,7 +74,7 @@
                             <a href="{{ url_for('assinaturas.editar', id=assinatura[0]) }}" class="btn btn-sm btn-warning me-2" title="Editar">
                                 <i class="bi bi-pencil"></i>
                             </a>
-                            <form action="{{ url_for('assinaturas.toggle_ativo', id=assinatura[0]) }}" method="post" style="display:inline;" onsubmit="return confirm('Tem certeza que deseja {{ 'desativar' if assinatura[4] else 'ativar' }} esta assinatura?');">
+                            <form action="{{ url_for('assinaturas.toggle_ativo', id=assinatura[0]) }}" method="post" style="display:inline;" onsubmit="return confirm('Tem certeza que deseja {{ 'desativar' if assinatura[4] else 'ativar' }} esta assinatura');">
                                 <button type="submit" class="btn btn-sm btn-{{ 'secondary' if assinatura[4] else 'success' }}" 
                                         title="{{ 'Desativar' if assinatura[4] else 'Ativar' }}">
                                     <i class="bi bi-{{ 'x-circle' if assinatura[4] else 'check-circle' }}"></i>
@@ -82,7 +82,7 @@
                             </form>
                             <form action="{{ url_for('assinaturas.excluir', id=assinatura[0]) }}" method="post" style="display:inline;">
                                 <button type="submit" class="btn btn-sm btn-danger ms-2" 
-                                        onclick="return confirm('Tem certeza que deseja excluir esta assinatura?');" title="Excluir">
+                                        onclick="return confirm('Tem certeza que deseja excluir esta assinatura');" title="Excluir">
                                     <i class="bi bi-trash"></i>
                                 </button>
                             </form>

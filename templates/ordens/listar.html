@@ -1,39 +1,87 @@
-{% extends "base.html" %}
+﻿{% extends "base.html" %}
 
 {% block title %}Painel de Atendimento - ERP Eletrotécnica{% endblock %}
 
 {% block content %}
 <h2 class="mb-4"><i class="bi bi-file-earmark-text"></i> Painel de Atendimento</h2>
 
+<ul class="nav nav-tabs mb-3" role="tablist">
+    <li class="nav-item" role="presentation">
+        <a class="nav-link {% if (aba or 'geral') == 'geral' %}active{% endif %}"
+           href="{{ url_for('ordens.listar', aba='geral', cliente_id=cliente_id, status=status, tipo_documento=tipo_documento, forma_pagamento_id=forma_pagamento_id, mes=mes, pesquisa=pesquisa) }}">
+            Geral
+        </a>
+    </li>
+    <li class="nav-item" role="presentation">
+        <a class="nav-link {% if (aba or '') == 'mensal' %}active{% endif %}"
+           href="{{ url_for('ordens.listar', aba='mensal', mensal_mes=mensal_mes, mensal_ano=mensal_ano) }}">
+            Mensal
+        </a>
+    </li>
+</ul>
+
+<div class="tab-content">
+    <div class="tab-pane fade {% if (aba or 'geral') == 'geral' %}show active{% endif %}" id="tabGeral">
 <div class="card">
     <div class="card-body">
         <div class="row mb-3">
-            <div class="col-md-6">
-                <form method="GET" class="d-flex gap-2">
-                    <select name="cliente_id" class="form-select">
-                        <option value="">Todos os clientes</option>
-                        {% for cliente in clientes %}
-                        <option value="{{ cliente.id }}" {% if cliente_id == cliente.id %}selected{% endif %}>
-                            {{ cliente.nome }}
-                        </option>
-                        {% endfor %}
-                    </select>
-                    <select name="status" class="form-select">
-                        <option value="">Todos os status</option>
-                        <option value="Nova" {% if status == 'Nova' %}selected{% endif %}>Nova</option>
-                        <option value="Em Andamento" {% if status == 'Em Andamento' %}selected{% endif %}>Em Andamento</option>
-                        <option value="Aguardando Pagamento" {% if status == 'Aguardando Pagamento' %}selected{% endif %}>Aguardando Pagamento</option>
-                        <option value="Paga" {% if status == 'Paga' %}selected{% endif %}>Paga</option>
-                        <option value="Cancelada" {% if status == 'Cancelada' %}selected{% endif %}>Cancelada</option>
-                    </select>
-                    <button type="submit" class="btn btn-primary">
-                        <i class="bi bi-funnel"></i> Filtrar
-                    </button>
+            <div class="col-md-8">
+                <form method="GET" class="row g-2">
+                    <input type="hidden" name="aba" value="geral">
+                    <div class="col-md-2">
+                        <select name="cliente_id" class="form-select form-select-sm">
+                            <option value="">Todos os clientes</option>
+                            {% for cliente in clientes %}
+                            <option value="{{ cliente.id }}" {% if cliente_id == cliente.id %}selected{% endif %}>
+                                {{ cliente.nome }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <select name="status" class="form-select form-select-sm">
+                            <option value="">Todos os status</option>
+                            <option value="Nova" {% if status == 'Nova' %}selected{% endif %}>Nova</option>
+                            <option value="Em Andamento" {% if status == 'Em Andamento' %}selected{% endif %}>Em Andamento</option>
+                            <option value="Aguardando Pagamento" {% if status == 'Aguardando Pagamento' %}selected{% endif %}>Aguardando Pagamento</option>
+                            <option value="Paga" {% if status == 'Paga' %}selected{% endif %}>Paga</option>
+                            <option value="Cancelada" {% if status == 'Cancelada' %}selected{% endif %}>Cancelada</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <select name="tipo_documento" class="form-select form-select-sm">
+                            <option value="">Todos os Tipos</option>
+                            <option value="OS" {% if tipo_documento == 'OS' %}selected{% endif %}>Somente Ordens</option>
+                            <option value="ORC" {% if tipo_documento == 'ORC' %}selected{% endif %}>Somente Orçamentos</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <select name="forma_pagamento_id" class="form-select form-select-sm">
+                            <option value="">Todas as formas de pagamento</option>
+                            {% for forma in formas_pagamento %}
+                            <option value="{{ forma.id }}" {% if forma_pagamento_id == forma.id %}selected{% endif %}>
+                                {{ forma.nome }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <input type="month" name="mes" id="mes" class="form-control form-control-sm" value="{{ mes }}" title="Mês de Ano">
+                        <small class="text-muted">Mês de Ano</small>
+                    </div>
+                    <div class="col-md-1">
+                        <input type="text" name="pesquisa" class="form-control form-control-sm" value="{{ pesquisa }}" placeholder="Código" title="Código da ordem" aria-label="Código da ordem">
+                    </div>
+                    <div class="col-md-1">
+                        <button type="submit" class="btn btn-primary btn-sm w-100">
+                            <i class="bi bi-funnel"></i> Filtrar
+                        </button>
+                    </div>
                 </form>
             </div>
-            <div class="col-md-6 text-end">
+            <div class="col-md-4 text-end">
                 <a href="{{ url_for('ordens.nova') }}" class="btn btn-success">
-                    <i class="bi bi-plus-circle"></i> Nova Ordem
+                    <i class="bi bi-plus-circle"></i> Nova Ordem/Orçamento
                 </a>
             </div>
         </div>
@@ -42,11 +90,13 @@
             <table class="table table-hover">
                 <thead>
                     <tr>
+                        <th>Tipo</th>
                         <th>ID</th>
                         <th>Cliente</th>
                         <th>Data</th>
                         <th>Pagamento</th>
-                        <th>Total</th>
+                        <th>Valor Parcela</th>
+                        <th>Total Geral</th>
                         <th>Status</th>
                         <th>Ações</th>
                     </tr>
@@ -54,7 +104,14 @@
                 <tbody>
                     {% for ordem in ordens %}
                     <tr>
-                        <td>{{ ordem.id }}</td>
+                        <td>
+                            {% if ordem.tipo_documento == 'ORC' %}
+                                <span class="badge bg-warning text-dark">Orçamento</span>
+                            {% else %}
+                                <span class="badge bg-primary">Ordem</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ ordem.codigo_orcamento if ordem.tipo_documento == 'ORC' and ordem.codigo_orcamento else ordem.id }}</td>
                         <td>{{ ordem.cliente_nome or '-' }}</td>
                         <td>{{ ordem.data.strftime('%d/%m/%Y') if ordem.data else '-' }}</td>
                         <td>
@@ -63,14 +120,46 @@
                                 {% if ordem.parcelas and ordem.parcelas > 1 %}
                                     <span class="badge bg-secondary">{{ ordem.parcelas }}x</span>
                                 {% endif %}
+                                {% if ordem.forma_pagamento_tipo == 'Parcelado' and ordem.parcelas and ordem.parcelas > 1 %}
+                                    <br><small class="text-muted">
+                                        Parcelas pagas: {{ ordem.parcelas_pagas or 0 }}/{{ ordem.parcelas }}
+                                    </small>
+                                {% endif %}
                             {% else %}
                                 -
                             {% endif %}
                         </td>
-                        <td>R$ {{ "%.2f"|format(ordem.total) }}</td>
                         <td>
+                            {% if ordem.forma_pagamento_tipo == 'Parcelado' and ordem.parcelas and ordem.parcelas > 1 %}
+                                R$ {{ "%.2f"|format((ordem.total / ordem.parcelas)) }}
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+                        <td>
+                            R$ {{ "%.2f"|format(ordem.total) }}
+                            {% if ordem.forma_pagamento_tipo == 'Parcelado' and ordem.parcelas and ordem.parcelas > 1 %}
+                                <br><small class="text-muted">
+                                    {% if ordem.parcelas_pagas and ordem.parcelas_pagas > 0 %}
+                                        Pago: R$ {{ "%.2f"|format((ordem.total / ordem.parcelas) * ordem.parcelas_pagas) }}
+                                        <br>Pendente: R$ {{ "%.2f"|format(ordem.total - ((ordem.total / ordem.parcelas) * ordem.parcelas_pagas)) }}
+                                    {% endif %}
+                                </small>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% set status_exibicao = ordem.status %}
+                            {% if ordem.tipo_documento == 'ORC' %}
+                                {% if ordem.status in ['Nova', 'Orçamento'] %}
+                                    {% set status_exibicao = 'Novo' %}
+                                {% elif ordem.status == 'Paga' %}
+                                    {% set status_exibicao = 'Pago' %}
+                                {% elif ordem.status == 'Cancelada' %}
+                                    {% set status_exibicao = 'Cancelado' %}
+                                {% endif %}
+                            {% endif %}
                             <span class="badge bg-{% if ordem.status == 'Paga' %}success{% elif ordem.status == 'Cancelada' %}danger{% else %}warning{% endif %}">
-                                {{ ordem.status }}
+                                {{ status_exibicao }}
                             </span>
                         </td>
                         <td>
@@ -89,7 +178,7 @@
                                    class="btn btn-sm btn-primary" title="Editar">
                                     <i class="bi bi-pencil"></i> Editar
                                 </a>
-                                <form action="{{ url_for('ordens.excluir', id=ordem.id) }}" method="POST" class="d-inline" onsubmit="return confirm('Tem certeza que deseja excluir esta ordem de serviço?');">
+                                <form action="{{ url_for('ordens.excluir', id=ordem.id) }}" method="POST" class="d-inline" onsubmit="return confirm('Tem certeza que deseja excluir esta ordem de serviço');">
                                     <button type="submit" class="btn btn-sm btn-danger" title="Excluir">
                                         <i class="bi bi-trash"></i> Excluir
                                     </button>
@@ -104,16 +193,46 @@
                             <div class="modal-content">
                                 <form method="POST" action="{{ url_for('ordens.alterar_status', id=ordem.id) }}">
                                     <div class="modal-header">
-                                        <h5 class="modal-title">Alterar Status - OS #{{ ordem.id }}</h5>
+                                        <h5 class="modal-title">Alterar Status - {{ 'ORÇ' if ordem.tipo_documento == 'ORC' else 'OS' }} #{{ ordem.codigo_orcamento if ordem.tipo_documento == 'ORC' and ordem.codigo_orcamento else ordem.id }}</h5>
                                         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                                     </div>
                                     <div class="modal-body">
-                                        <select name="status" class="form-select" required>
-                                            <option value="Nova" {% if ordem.status == 'Nova' %}selected{% endif %}>Nova</option>
+                                        {% if ordem.forma_pagamento_tipo == 'Parcelado' and ordem.parcelas and ordem.parcelas > 1 %}
+                                        <div id="parcelasStatusContainer{{ ordem.id }}" class="mt-3" style="{% if ordem.status == 'Paga' %}display: block;{% else %}display: none;{% endif %}">
+                                        <div class="alert alert-info">
+                                            <strong>Ordem Parcelada:</strong><br>
+                                            Total: R$ {{ "%.2f"|format(ordem.total) }}<br>
+                                            Parcelas: {{ ordem.parcelas }}x de R$ {{ "%.2f"|format(ordem.total / ordem.parcelas) }}<br>
+                                            Parcelas pagas: {{ ordem.parcelas_pagas or 0 }}/{{ ordem.parcelas }}<br>
+                                            {% if ordem.parcelas_pagas and ordem.parcelas_pagas > 0 %}
+                                                Valor já pago: R$ {{ "%.2f"|format((ordem.total / ordem.parcelas) * ordem.parcelas_pagas) }}<br>
+                                                Valor pendente: R$ {{ "%.2f"|format(ordem.total - ((ordem.total / ordem.parcelas) * ordem.parcelas_pagas)) }}
+                                            {% endif %}
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Ao marcar como "Paga":</label>
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="radio" name="tipo_pagamento_{{ ordem.id }}" id="uma_parcela_{{ ordem.id }}" value="uma" checked>
+                                                <label class="form-check-label" for="uma_parcela_{{ ordem.id }}">
+                                                    Marcar apenas uma parcela
+                                                </label>
+                                            </div>
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="radio" name="tipo_pagamento_{{ ordem.id }}" id="todas_parcelas_{{ ordem.id }}" value="todas">
+                                                <label class="form-check-label" for="todas_parcelas_{{ ordem.id }}">
+                                                    Marcar todas as parcelas restantes
+                                                </label>
+                                            </div>
+                                        </div>
+                                        </div>
+                                        {% endif %}
+                                        <label for="status{{ ordem.id }}" class="form-label">Status:</label>
+                                        <select name="status" id="status{{ ordem.id }}" class="form-select" required>
+                                            <option value="Nova" {% if ordem.status in ['Nova', 'Orçamento'] %}selected{% endif %}>{{ 'Novo' if ordem.tipo_documento == 'ORC' else 'Nova' }}</option>
                                             <option value="Em Andamento" {% if ordem.status == 'Em Andamento' %}selected{% endif %}>Em Andamento</option>
                                             <option value="Aguardando Pagamento" {% if ordem.status == 'Aguardando Pagamento' %}selected{% endif %}>Aguardando Pagamento</option>
-                                            <option value="Paga" {% if ordem.status == 'Paga' %}selected{% endif %}>Paga</option>
-                                            <option value="Cancelada" {% if ordem.status == 'Cancelada' %}selected{% endif %}>Cancelada</option>
+                                            <option value="Paga" {% if ordem.status == 'Paga' %}selected{% endif %}>{{ 'Pago' if ordem.tipo_documento == 'ORC' else 'Paga' }}</option>
+                                            <option value="Cancelada" {% if ordem.status == 'Cancelada' %}selected{% endif %}>{{ 'Cancelado' if ordem.tipo_documento == 'ORC' else 'Cancelada' }}</option>
                                         </select>
                                     </div>
                                     <div class="modal-footer">
@@ -126,7 +245,7 @@
                     </div>
                     {% else %}
                     <tr>
-                        <td colspan="7" class="text-center">Nenhuma ordem encontrada</td>
+                        <td colspan="9" class="text-center">Nenhuma ordem encontrada</td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -134,4 +253,759 @@
         </div>
     </div>
 </div>
+    </div>
+
+    <div class="tab-pane fade {% if (aba or '') == 'mensal' %}show active{% endif %}" id="tabMensal">
+        <div class="card">
+            <div class="card-body">
+                <form method="GET" class="row g-2 align-items-end mb-3" id="mensalFiltroForm">
+                    <input type="hidden" name="aba" value="mensal">
+                    <input type="hidden" name="mensal_data_inicio" id="mensal_data_inicio" value="{{ mensal_data_inicio or '' }}">
+                    <input type="hidden" name="mensal_data_fim" id="mensal_data_fim" value="{{ mensal_data_fim or '' }}">
+
+                    <div class="col-md-auto">
+                        <label for="mensalFiltroData" class="form-label">
+                            <i class="bi bi-calendar-range"></i> Filtrar por Período
+                        </label>
+                        <div class="input-group" style="width: 420px; max-width: 100%;">
+                            <input type="text" class="form-control" id="mensalFiltroData" inputmode="numeric" autocomplete="off"
+                                   placeholder="dd/mm/aaaa a dd/mm/aaaa">
+                            <button class="btn btn-secondary" type="button" id="btnMensalCalendario" aria-label="Abrir calendário">
+                                <i class="bi bi-calendar3"></i>
+                            </button>
+                        </div>
+                        <input type="text" id="mensalFiltroDataPicker" tabindex="-1" aria-hidden="true" style="position:absolute; opacity:0; pointer-events:none; width:1px; height:1px; border:0; padding:0;">
+                    </div>
+                    <div class="col-md-auto">
+                        <button class="btn btn-primary w-100" type="submit" id="btnMensalAplicar">
+                            <i class="bi bi-funnel"></i> Aplicar
+                        </button>
+                    </div>
+                </form>
+
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Cliente</th>
+                                <th>CNPJ/CPF</th>
+                                <th>Total no mês</th>
+                                <th>Pagamento</th>
+                                <th>Valor Parcela</th>
+                                <th>Desconto</th>
+                                <th>Status</th>
+                                <th>Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% if clientes_mensais %}
+                                {% for c in clientes_mensais %}
+                                    {% set cid = c.id %}
+                                    {% set total_mes = (totais_mensais_por_cliente.get(cid, 0) or 0) %}
+                                    {% set cobranca = cobrancas_mensais_por_cliente.get(cid) %}
+                                    <tr>
+                                        <td data-bs-toggle="collapse" data-bs-target="#collapseCliente{{ cid }}" style="cursor:pointer;">{{ cid }}</td>
+                                        <td data-bs-toggle="collapse" data-bs-target="#collapseCliente{{ cid }}" style="cursor:pointer;"><strong>{{ c.nome }}</strong></td>
+                                        <td data-bs-toggle="collapse" data-bs-target="#collapseCliente{{ cid }}" style="cursor:pointer;">{{ c.cnpj_cpf or '-' }}</td>
+                                        <td data-bs-toggle="collapse" data-bs-target="#collapseCliente{{ cid }}" style="cursor:pointer;">
+                                            R$ {{ total_mes|moeda_br }}
+                                            {% if cobranca and cobranca.forma_pagamento_tipo == 'Parcelado' and cobranca.parcelas and cobranca.parcelas > 1 and cobranca.parcelas_pagas and cobranca.parcelas_pagas > 0 %}
+                                                <br><small class="text-muted">
+                                                    Pago: R$ {{ ((total_mes / cobranca.parcelas) * cobranca.parcelas_pagas)|moeda_br }}
+                                                    <br>Pendente: R$ {{ (total_mes - ((total_mes / cobranca.parcelas) * cobranca.parcelas_pagas))|moeda_br }}
+                                                </small>
+                                            {% endif %}
+                                        </td>
+                                        <td data-bs-toggle="collapse" data-bs-target="#collapseCliente{{ cid }}" style="cursor:pointer;">
+                                            {% if cobranca and cobranca.forma_pagamento_nome %}
+                                                {{ cobranca.forma_pagamento_nome }}
+                                                {% if cobranca.parcelas and cobranca.parcelas > 1 %}
+                                                    <span class="badge bg-secondary">{{ cobranca.parcelas }}x</span>
+                                                {% endif %}
+                                                {% if cobranca.forma_pagamento_tipo == 'Parcelado' and cobranca.parcelas and cobranca.parcelas > 1 %}
+                                                    <br><small class="text-muted">
+                                                        Parcelas pagas: {{ cobranca.parcelas_pagas or 0 }}/{{ cobranca.parcelas }}
+                                                    </small>
+                                                {% endif %}
+                                            {% else %}
+                                                -
+                                            {% endif %}
+                                        </td>
+                                        <td data-bs-toggle="collapse" data-bs-target="#collapseCliente{{ cid }}" style="cursor:pointer;">
+                                            {% if cobranca and cobranca.forma_pagamento_tipo == 'Parcelado' and cobranca.parcelas and cobranca.parcelas > 1 %}
+                                                R$ {{ (total_mes / cobranca.parcelas)|moeda_br }}
+                                            {% else %}
+                                                -
+                                            {% endif %}
+                                        </td>
+                                        <td data-bs-toggle="collapse" data-bs-target="#collapseCliente{{ cid }}" style="cursor:pointer;">
+                                            {% if cobranca and cobranca.desconto_tipo == 'percentual' and cobranca.desconto_percentual %}
+                                                {{ '%.2f'|format(cobranca.desconto_percentual) }}%
+                                            {% elif cobranca and cobranca.desconto_tipo == 'fixo' and cobranca.desconto_valor %}
+                                                R$ {{ cobranca.desconto_valor|moeda_br }}
+                                            {% else %}
+                                                -
+                                            {% endif %}
+                                        </td>
+                                        <td data-bs-toggle="collapse" data-bs-target="#collapseCliente{{ cid }}" style="cursor:pointer;">
+                                            <span class="badge bg-{% if cobranca and cobranca.status == 'Paga' %}success{% elif cobranca and cobranca.status == 'Cancelada' %}danger{% else %}warning{% endif %}">
+                                                {{ (cobranca.status if cobranca else 'Aguardando Pagamento') }}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <div class="d-flex gap-1 flex-wrap">
+                                                <button type="button" class="btn btn-sm" style="background-color:#ff8c00;color:#fff;border-color:#ff8c00;"
+                                                        data-bs-toggle="modal" data-bs-target="#mensalStatusModal{{ cid }}" onclick="event.stopPropagation();">
+                                                    <i class="bi bi-arrow-repeat"></i> Status
+                                                </button>
+                                                <a class="btn btn-sm btn-info mensal-pdf-btn"
+                                                   href="{{ url_for('clientes.relatorio_mensal', id=cid, data_inicio=(mensal_data_inicio or primeiro_dia_mes.strftime('%Y-%m-%d')), data_fim=(mensal_data_fim or ultimo_dia_mes.strftime('%Y-%m-%d'))) }}"
+                                                   data-base-href="{{ url_for('clientes.relatorio_mensal', id=cid) }}"
+                                                   data-cliente-id="{{ cid }}"
+                                                   data-forma-pagamento-id="{{ cobranca.forma_pagamento_id if cobranca else '' }}"
+                                                   data-parcelas="{{ cobranca.parcelas if cobranca and cobranca.parcelas else 1 }}"
+                                                   data-data-pagamento="{{ cobranca.data_pagamento.strftime('%Y-%m-%d') if cobranca and cobranca.data_pagamento else '' }}"
+                                                   data-data-primeira-parcela="{{ cobranca.data_primeira_parcela.strftime('%Y-%m-%d') if cobranca and cobranca.data_primeira_parcela else '' }}"
+                                                   data-desconto-tipo="{{ cobranca.desconto_tipo if cobranca and cobranca.desconto_tipo else '' }}"
+                                                   data-desconto-valor="{{ cobranca.desconto_percentual if cobranca and cobranca.desconto_tipo == 'percentual' else (cobranca.desconto_valor if cobranca and cobranca.desconto_valor else '') }}"
+                                                   onclick="event.stopPropagation();">
+                                                    <i class="bi bi-file-pdf"></i> PDF
+                                                </a>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    <tr class="collapse" id="collapseCliente{{ cid }}">
+                                        <td colspan="9">
+                                            <div class="p-2">
+                                                <div class="small text-muted mb-2">Ordens do período</div>
+                                                <div class="table-responsive">
+                                                    <table class="table table-sm">
+                                                        <thead>
+                                                            <tr>
+                                                                <th>ID</th>
+                                                                <th>Data</th>
+                                                                <th>Pagamento</th>
+                                                                <th>Valor Parcela</th>
+                                                                <th>Valor</th>
+                                                                <th>Status</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            {% for o in (ordens_por_cliente.get(cid, []) or []) %}
+                                                                <tr>
+                                                                    <td>{{ o.id }}</td>
+                                                                    <td>{{ o.data.strftime('%d/%m/%Y') if o.data else '-' }}</td>
+                                                                    <td>
+                                                                        {% if o.forma_pagamento_nome %}
+                                                                            {{ o.forma_pagamento_nome }}
+                                                                            {% if o.parcelas and o.parcelas > 1 %}
+                                                                                <span class="badge bg-secondary">{{ o.parcelas }}x</span>
+                                                                            {% endif %}
+                                                                            {% if o.forma_pagamento_tipo == 'Parcelado' and o.parcelas and o.parcelas > 1 %}
+                                                                                <br><small class="text-muted">
+                                                                                    Parcelas pagas: {{ o.parcelas_pagas or 0 }}/{{ o.parcelas }}
+                                                                                </small>
+                                                                            {% endif %}
+                                                                        {% else %}
+                                                                            -
+                                                                        {% endif %}
+                                                                    </td>
+                                                                    <td>
+                                                                        {% if o.forma_pagamento_tipo == 'Parcelado' and o.parcelas and o.parcelas > 1 %}
+                                                                            R$ {{ ((o.total or 0) / o.parcelas)|moeda_br }}
+                                                                        {% else %}
+                                                                            -
+                                                                        {% endif %}
+                                                                    </td>
+                                                                    <td>
+                                                                        R$ {{ (o.total or 0)|moeda_br }}
+                                                                        {% if o.forma_pagamento_tipo == 'Parcelado' and o.parcelas and o.parcelas > 1 and o.parcelas_pagas and o.parcelas_pagas > 0 %}
+                                                                            <br><small class="text-muted">
+                                                                                Pago: R$ {{ (((o.total or 0) / o.parcelas) * o.parcelas_pagas)|moeda_br }}
+                                                                                <br>Pendente: R$ {{ ((o.total or 0) - (((o.total or 0) / o.parcelas) * o.parcelas_pagas))|moeda_br }}
+                                                                            </small>
+                                                                        {% endif %}
+                                                                    </td>
+                                                                    <td>{{ o.status }}</td>
+                                                                </tr>
+                                                            {% else %}
+                                                                <tr><td colspan="6" class="text-center text-muted">Nenhuma ordem no período</td></tr>
+                                                            {% endfor %}
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            </div>
+                                        </td>
+                                    </tr>
+
+                                    <!-- Modais Mensal -->
+                                    <div class="modal fade" id="mensalStatusModal{{ cid }}" tabindex="-1">
+                                        <div class="modal-dialog">
+                                            <div class="modal-content">
+                                                <form method="POST" action="{{ url_for('ordens.mensal_status', cliente_id=cid) }}">
+                                                    <input type="hidden" name="mensal_mes" value="{{ mensal_mes }}">
+                                                    <input type="hidden" name="mensal_ano" value="{{ mensal_ano }}">
+                                                    <div class="modal-header">
+                                                        <h5 class="modal-title">Status Mensal - {{ c.nome }}</h5>
+                                                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                                    </div>
+                                                    <div class="modal-body">
+                                                        {% if cobranca and cobranca.forma_pagamento_nome %}
+                                                            <div class="alert alert-light border">
+                                                                <strong>Pagamento:</strong> {{ cobranca.forma_pagamento_nome }}
+                                                                {% if cobranca.parcelas and cobranca.parcelas > 1 %}
+                                                                    <span class="badge bg-secondary">{{ cobranca.parcelas }}x</span>
+                                                                {% endif %}
+                                                                {% if cobranca.forma_pagamento_tipo == 'Parcelado' and cobranca.parcelas and cobranca.parcelas > 1 %}
+                                                                    <br>
+                                                                    <strong>Valor da Parcela:</strong> R$ {{ (total_mes / cobranca.parcelas)|moeda_br }}
+                                                                    <br>
+                                                                    <strong>Parcelas pagas:</strong> {{ cobranca.parcelas_pagas or 0 }}/{{ cobranca.parcelas }}
+                                                                {% endif %}
+                                                            </div>
+                                                        {% else %}
+                                                            <div class="alert alert-warning py-2">
+                                                                Configure a forma de pagamento antes de marcar a cobrança como paga.
+                                                            </div>
+                                                        {% endif %}
+                                                        <label class="form-label">Status</label>
+                                                        <select class="form-select mensal-status-select" name="status" required data-cliente-id="{{ cid }}">
+                                                            {% set st = (cobranca.status if cobranca else 'Aguardando Pagamento') %}
+                                                            <option value="Nova" {% if st == 'Nova' %}selected{% endif %}>Nova</option>
+                                                            <option value="Em Andamento" {% if st == 'Em Andamento' %}selected{% endif %}>Em Andamento</option>
+                                                            <option value="Aguardando Pagamento" {% if st == 'Aguardando Pagamento' %}selected{% endif %}>Aguardando Pagamento</option>
+                                                            <option value="Paga" {% if st == 'Paga' %}selected{% endif %}>Paga</option>
+                                                            <option value="Cancelada" {% if st == 'Cancelada' %}selected{% endif %}>Cancelada</option>
+                                                        </select>
+                                                        {% if cobranca and cobranca.forma_pagamento_tipo == 'Parcelado' and cobranca.parcelas and cobranca.parcelas > 1 %}
+                                                            <div class="mt-3" id="mensalParcelasStatusContainer{{ cid }}" style="{% if (cobranca.status if cobranca else '') == 'Paga' %}display: block;{% else %}display: none;{% endif %}">
+                                                                <div class="alert alert-info mb-3">
+                                                                    <strong>Cobrança Parcelada:</strong><br>
+                                                                    Total: R$ {{ total_mes|moeda_br }}<br>
+                                                                    Parcelas: {{ cobranca.parcelas }}x de R$ {{ (total_mes / cobranca.parcelas)|moeda_br }}<br>
+                                                                    Parcelas pagas: {{ cobranca.parcelas_pagas or 0 }}/{{ cobranca.parcelas }}<br>
+                                                                    {% if cobranca.parcelas_pagas and cobranca.parcelas_pagas > 0 %}
+                                                                        Valor já pago: R$ {{ (((total_mes / cobranca.parcelas) * cobranca.parcelas_pagas))|moeda_br }}<br>
+                                                                        Valor pendente: R$ {{ (total_mes - ((total_mes / cobranca.parcelas) * cobranca.parcelas_pagas))|moeda_br }}
+                                                                    {% endif %}
+                                                                </div>
+                                                                <div class="mb-3">
+                                                                    <label class="form-label">Ao marcar como "Paga":</label>
+                                                                    <div class="form-check">
+                                                                        <input class="form-check-input" type="radio" name="tipo_pagamento" id="mensal_uma_parcela_{{ cid }}" value="uma" checked>
+                                                                        <label class="form-check-label" for="mensal_uma_parcela_{{ cid }}">
+                                                                            Marcar apenas uma parcela
+                                                                        </label>
+                                                                    </div>
+                                                                    <div class="form-check">
+                                                                        <input class="form-check-input" type="radio" name="tipo_pagamento" id="mensal_todas_parcelas_{{ cid }}" value="todas">
+                                                                        <label class="form-check-label" for="mensal_todas_parcelas_{{ cid }}">
+                                                                            Marcar todas as parcelas restantes
+                                                                        </label>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        {% endif %}
+                                                    </div>
+                                                    <div class="modal-footer">
+                                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                                                        <button type="submit" class="btn btn-primary">Salvar</button>
+                                                    </div>
+                                                </form>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="modal fade" id="mensalPagamentoModal{{ cid }}" tabindex="-1">
+                                        <div class="modal-dialog">
+                                            <div class="modal-content">
+                                                <form method="POST" action="{{ url_for('ordens.mensal_pagamento', cliente_id=cid) }}" class="mensal-pagamento-form" data-cliente-id="{{ cid }}">
+                                                    <input type="hidden" name="mensal_mes" value="{{ mensal_mes }}">
+                                                    <input type="hidden" name="mensal_ano" value="{{ mensal_ano }}">
+                                                    <input type="hidden" name="redirect_to_pdf" value="0" id="mensalRedirectToPdf{{ cid }}">
+                                                    <input type="hidden" name="pdf_data_inicio" value="" id="mensalPdfDataInicio{{ cid }}">
+                                                    <input type="hidden" name="pdf_data_fim" value="" id="mensalPdfDataFim{{ cid }}">
+                                                    <div class="modal-header">
+                                                        <h5 class="modal-title">Pagamento Mensal - {{ c.nome }}</h5>
+                                                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                                    </div>
+                                                    <div class="modal-body">
+                                                        <label class="form-label">Forma de pagamento</label>
+                                                        <select class="form-select mensal-forma-pagamento" name="forma_pagamento_id" required data-cliente-id="{{ cid }}">
+                                                            <option value="">Selecione...</option>
+                                                            {% for f in formas_pagamento %}
+                                                                <option value="{{ f.id }}" data-tipo="{{ f.tipo or '' }}" {% if cobranca and cobranca.forma_pagamento_id == f.id %}selected{% endif %}>{{ f.nome }}</option>
+                                                            {% endfor %}
+                                                        </select>
+                                                        <div class="row mt-3 mensal-avista-campos" id="mensalAvistaCampos{{ cid }}" style="display: none;">
+                                                            <div class="col-md-6">
+                                                                <label class="form-label">Data do pagamento</label>
+                                                                <input type="date" class="form-control" name="data_pagamento" value="{{ cobranca.data_pagamento.strftime('%Y-%m-%d') if cobranca and cobranca.data_pagamento else '' }}">
+                                                            </div>
+                                                        </div>
+                                                        <div class="row mt-3 mensal-parcelado-campos" id="mensalParceladoCampos{{ cid }}" style="display: none;">
+                                                            <div class="col-md-6">
+                                                                <label class="form-label">Data 1ª parcela</label>
+                                                                <input type="date" class="form-control" name="data_primeira_parcela" value="{{ cobranca.data_primeira_parcela.strftime('%Y-%m-%d') if cobranca and cobranca.data_primeira_parcela else '' }}">
+                                                            </div>
+                                                            <div class="col-md-6">
+                                                                <label class="form-label">Parcelas</label>
+                                                                <input type="number" class="form-control" name="parcelas" value="{{ cobranca.parcelas if cobranca and cobranca.parcelas else 1 }}" min="1">
+                                                            </div>
+                                                        </div>
+                                                        <div class="form-text mt-2 mensal-parcelado-campos" id="mensalParceladoTexto{{ cid }}" style="display: none;">
+                                                            Parcelado: gera parcelas automaticamente somando 30 dias a cada parcela.
+                                                        </div>
+                                                        <hr class="my-4">
+                                                        <div class="row">
+                                                            <div class="col-md-6">
+                                                                <label class="form-label">Desconto</label>
+                                                                <select class="form-select mensal-desconto-tipo" name="desconto_tipo" data-cliente-id="{{ cid }}">
+                                                                    <option value="" {% if not cobranca or not cobranca.desconto_tipo %}selected{% endif %}>Sem desconto</option>
+                                                                    <option value="fixo" {% if cobranca and cobranca.desconto_tipo == 'fixo' %}selected{% endif %}>Valor fixo</option>
+                                                                    <option value="percentual" {% if cobranca and cobranca.desconto_tipo == 'percentual' %}selected{% endif %}>Percentual (%)</option>
+                                                                </select>
+                                                            </div>
+                                                            <div class="col-md-6">
+                                                                <label class="form-label">Valor do desconto</label>
+                                                                <input type="number" step="0.01" min="0" class="form-control mensal-desconto-valor" name="desconto_valor" value="{{ cobranca.desconto_percentual if cobranca and cobranca.desconto_tipo == 'percentual' else (cobranca.desconto_valor if cobranca and cobranca.desconto_valor else 0) }}" data-cliente-id="{{ cid }}">
+                                                                <div class="form-text">Fixe um valor ou informe a porcentagem sobre o total mensal.</div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    <div class="modal-footer">
+                                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                                                        <button type="submit" class="btn btn-primary">Salvar</button>
+                                                    </div>
+                                                </form>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                {% endfor %}
+                            {% else %}
+                                <tr><td colspan="9" class="text-center text-muted">Nenhum cliente com ordens no período selecionado.</td></tr>
+                            {% endif %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+<script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/pt.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const mensalInput = document.getElementById('mensalFiltroData');
+    const mensalPickerInput = document.getElementById('mensalFiltroDataPicker');
+    const mensalInicioHidden = document.getElementById('mensal_data_inicio');
+    const mensalFimHidden = document.getElementById('mensal_data_fim');
+    const btnMensalCalendario = document.getElementById('btnMensalCalendario');
+    const mensalFiltroForm = document.getElementById('mensalFiltroForm');
+    const separadorPeriodo = ' a ';
+
+    let mensalPicker = null;
+
+    function formatarDataInput(valor) {
+        const numeros = (valor || '').replace(/\D/g, '').slice(0, 16);
+        const primeiraData = numeros.slice(0, 8);
+        const segundaData = numeros.slice(8, 16);
+
+        function aplicarMascaraData(dataNumerica) {
+            let resultado = dataNumerica;
+            if (resultado.length > 2) resultado = resultado.slice(0, 2) + '/' + resultado.slice(2);
+            if (resultado.length > 5) resultado = resultado.slice(0, 5) + '/' + resultado.slice(5);
+            return resultado;
+        }
+
+        let valorFormatado = aplicarMascaraData(primeiraData);
+        if (segundaData.length > 0) {
+            valorFormatado += separadorPeriodo + aplicarMascaraData(segundaData);
+        }
+        return valorFormatado;
+    }
+
+    function parseDataBR(valor) {
+        if (!/^\d{2}\/\d{2}\/\d{4}$/.test(valor)) return null;
+        const partes = valor.split('/');
+        const dia = parseInt(partes[0], 10);
+        const mes = parseInt(partes[1], 10) - 1;
+        const ano = parseInt(partes[2], 10);
+        const data = new Date(ano, mes, dia);
+        if (data.getFullYear() !== ano || data.getMonth() !== mes || data.getDate() !== dia) return null;
+        return data;
+    }
+
+    function formatarDataISO(data) {
+        const ano = data.getFullYear();
+        const mes = String(data.getMonth() + 1).padStart(2, '0');
+        const dia = String(data.getDate()).padStart(2, '0');
+        return ano + '-' + mes + '-' + dia;
+    }
+
+    function formatarDataBRDesdeISO(valorIso) {
+        if (!valorIso) return '';
+        const partes = valorIso.split('-');
+        if (partes.length !== 3) return '';
+        return partes[2] + '/' + partes[1] + '/' + partes[0];
+    }
+
+    function obterPeriodoDigitado() {
+        const valor = mensalInput.value.trim();
+        if (!valor) return null;
+        const datasEncontradas = valor.match(/\d{2}\/\d{2}\/\d{4}/g);
+        if (!datasEncontradas || datasEncontradas.length < 2) return null;
+
+        let dataInicio = parseDataBR(datasEncontradas[0]);
+        let dataFim = parseDataBR(datasEncontradas[1]);
+        if (!dataInicio || !dataFim) return null;
+
+        if (dataInicio > dataFim) {
+            const troca = dataInicio;
+            dataInicio = dataFim;
+            dataFim = troca;
+        }
+
+        return {
+            inicio: formatarDataISO(dataInicio),
+            fim: formatarDataISO(dataFim),
+            datas: [dataInicio, dataFim]
+        };
+    }
+
+    function aplicarPeriodo(periodo, submeter) {
+        if (!periodo) return;
+        mensalInicioHidden.value = periodo.inicio;
+        mensalFimHidden.value = periodo.fim;
+        mensalInput.value =
+            String(periodo.datas[0].getDate()).padStart(2, '0') + '/' +
+            String(periodo.datas[0].getMonth() + 1).padStart(2, '0') + '/' +
+            periodo.datas[0].getFullYear() +
+            separadorPeriodo +
+            String(periodo.datas[1].getDate()).padStart(2, '0') + '/' +
+            String(periodo.datas[1].getMonth() + 1).padStart(2, '0') + '/' +
+            periodo.datas[1].getFullYear();
+        if (mensalPicker) {
+            mensalPicker.setDate(periodo.datas, false, 'd/m/Y');
+        }
+        if (submeter && mensalFiltroForm) {
+            mensalFiltroForm.submit();
+        }
+    }
+
+    function atualizarMensalPdfLinks() {
+        const periodo = obterPeriodoDigitado();
+        const dataInicio = periodo ? periodo.inicio : mensalInicioHidden.value;
+        const dataFim = periodo ? periodo.fim : mensalFimHidden.value;
+
+        document.querySelectorAll('.mensal-pdf-btn').forEach(function(link) {
+            const baseHref = link.dataset.baseHref;
+            if (!baseHref || !dataInicio || !dataFim) {
+                return;
+            }
+            link.href = baseHref + '?data_inicio=' + encodeURIComponent(dataInicio) + '&data_fim=' + encodeURIComponent(dataFim);
+        });
+    }
+
+    if (mensalInput && mensalPickerInput && typeof flatpickr !== 'undefined') {
+        if (mensalInicioHidden.value && mensalFimHidden.value) {
+            mensalInput.value =
+                formatarDataBRDesdeISO(mensalInicioHidden.value) +
+                separadorPeriodo +
+                formatarDataBRDesdeISO(mensalFimHidden.value);
+        }
+        atualizarMensalPdfLinks();
+
+        mensalPicker = flatpickr(mensalPickerInput, {
+            mode: "range",
+            dateFormat: "d/m/Y",
+            locale: "pt",
+            allowInput: false,
+            clickOpens: false,
+            disableMobile: true,
+            onChange: function(selectedDates) {
+                if (selectedDates.length === 2) {
+                    aplicarPeriodo({
+                        inicio: formatarDataISO(selectedDates[0]),
+                        fim: formatarDataISO(selectedDates[1]),
+                        datas: selectedDates
+                    }, false);
+                    atualizarMensalPdfLinks();
+                }
+            }
+        });
+
+        mensalInput.addEventListener('input', function(event) {
+            const valorFormatado = formatarDataInput(event.target.value);
+            if (event.target.value !== valorFormatado) {
+                event.target.value = valorFormatado;
+            }
+        });
+
+        mensalInput.addEventListener('blur', function() {
+            const periodo = obterPeriodoDigitado();
+            if (periodo) {
+                aplicarPeriodo(periodo, false);
+                atualizarMensalPdfLinks();
+            }
+        });
+    }
+
+    if (btnMensalCalendario) {
+        btnMensalCalendario.addEventListener('click', function() {
+            if (mensalPicker) {
+                mensalPicker.open();
+            }
+        });
+    }
+
+    if (mensalFiltroForm) {
+        mensalFiltroForm.addEventListener('submit', function(event) {
+            const periodo = obterPeriodoDigitado();
+            if (!periodo) {
+                event.preventDefault();
+                alert('Informe um período completo no formato DD/MM/AAAA a DD/MM/AAAA ou selecione as duas datas no calendário.');
+                return;
+            }
+            mensalInicioHidden.value = periodo.inicio;
+            mensalFimHidden.value = periodo.fim;
+            atualizarMensalPdfLinks();
+            if (mensalPicker) {
+                mensalPicker.setDate(periodo.datas, false, 'd/m/Y');
+            }
+        });
+    }
+
+    function prepararRedirecionamentoPdf(clienteId, dataInicio, dataFim) {
+        const redirectInput = document.getElementById('mensalRedirectToPdf' + clienteId);
+        const inicioInput = document.getElementById('mensalPdfDataInicio' + clienteId);
+        const fimInput = document.getElementById('mensalPdfDataFim' + clienteId);
+        if (redirectInput) {
+            redirectInput.value = '1';
+        }
+        if (inicioInput) {
+            inicioInput.value = dataInicio || '';
+        }
+        if (fimInput) {
+            fimInput.value = dataFim || '';
+        }
+    }
+
+    function limparRedirecionamentoPdf(clienteId) {
+        const redirectInput = document.getElementById('mensalRedirectToPdf' + clienteId);
+        const inicioInput = document.getElementById('mensalPdfDataInicio' + clienteId);
+        const fimInput = document.getElementById('mensalPdfDataFim' + clienteId);
+        if (redirectInput) {
+            redirectInput.value = '0';
+        }
+        if (inicioInput) {
+            inicioInput.value = '';
+        }
+        if (fimInput) {
+            fimInput.value = '';
+        }
+    }
+
+    function preencherModalPagamentoMensal(link) {
+        const clienteId = link.dataset.clienteId;
+        const modalElement = document.getElementById('mensalPagamentoModal' + clienteId);
+        if (!modalElement) {
+            return;
+        }
+
+        const form = modalElement.querySelector('form');
+        if (!form) {
+            return;
+        }
+
+        const formaPagamento = form.querySelector('select[name="forma_pagamento_id"]');
+        const dataPagamento = form.querySelector('input[name="data_pagamento"]');
+        const dataPrimeiraParcela = form.querySelector('input[name="data_primeira_parcela"]');
+        const parcelas = form.querySelector('input[name="parcelas"]');
+        const descontoTipo = form.querySelector('select[name="desconto_tipo"]');
+        const descontoValor = form.querySelector('input[name="desconto_valor"]');
+
+        if (formaPagamento) {
+            formaPagamento.value = link.dataset.formaPagamentoId || '';
+            formaPagamento.dispatchEvent(new Event('change'));
+        }
+        if (dataPagamento) {
+            dataPagamento.value = link.dataset.dataPagamento || '';
+        }
+        if (dataPrimeiraParcela) {
+            dataPrimeiraParcela.value = link.dataset.dataPrimeiraParcela || '';
+        }
+        if (parcelas) {
+            parcelas.value = link.dataset.parcelas || 1;
+        }
+        if (descontoTipo) {
+            descontoTipo.value = link.dataset.descontoTipo || '';
+            descontoTipo.dispatchEvent(new Event('change'));
+        }
+        if (descontoValor) {
+            descontoValor.value = link.dataset.descontoValor || 0;
+        }
+    }
+
+    document.querySelectorAll('.mensal-pdf-btn').forEach(function(link) {
+        link.addEventListener('click', function(event) {
+            event.stopPropagation();
+
+            const periodo = obterPeriodoDigitado();
+            const dataInicio = periodo ? periodo.inicio : mensalInicioHidden.value;
+            const dataFim = periodo ? periodo.fim : mensalFimHidden.value;
+            const clienteId = link.dataset.clienteId;
+
+            if (!dataInicio || !dataFim) {
+                event.preventDefault();
+                alert('Informe um período completo antes de gerar o PDF.');
+                return;
+            }
+
+            event.preventDefault();
+            prepararRedirecionamentoPdf(clienteId, dataInicio, dataFim);
+            preencherModalPagamentoMensal(link);
+            const modalElement = document.getElementById('mensalPagamentoModal' + clienteId);
+            if (modalElement && typeof bootstrap !== 'undefined') {
+                bootstrap.Modal.getOrCreateInstance(modalElement).show();
+            }
+        });
+    });
+
+    document.querySelectorAll('.mensal-pagamento-form').forEach(function(form) {
+        form.addEventListener('submit', function() {
+            const clienteId = form.dataset.clienteId;
+            const pdfButton = document.querySelector('.mensal-pdf-btn[data-cliente-id="' + clienteId + '"]');
+            if (!pdfButton) {
+                return;
+            }
+
+            const formaPagamento = form.querySelector('select[name="forma_pagamento_id"]');
+            const dataPagamento = form.querySelector('input[name="data_pagamento"]');
+            const dataPrimeiraParcela = form.querySelector('input[name="data_primeira_parcela"]');
+            const parcelas = form.querySelector('input[name="parcelas"]');
+            const descontoTipo = form.querySelector('select[name="desconto_tipo"]');
+            const descontoValor = form.querySelector('input[name="desconto_valor"]');
+            const optionSelecionada = formaPagamento ? formaPagamento.options[formaPagamento.selectedIndex] : null;
+            const ehParcelado = optionSelecionada ? (optionSelecionada.dataset.tipo || '') === 'Parcelado' : false;
+
+            pdfButton.dataset.formaPagamentoId = formaPagamento ? (formaPagamento.value || '') : '';
+            pdfButton.dataset.parcelas = parcelas ? (parcelas.value || 1) : 1;
+            pdfButton.dataset.dataPagamento = !ehParcelado && dataPagamento ? (dataPagamento.value || '') : '';
+            pdfButton.dataset.dataPrimeiraParcela = ehParcelado && dataPrimeiraParcela ? (dataPrimeiraParcela.value || '') : '';
+            pdfButton.dataset.descontoTipo = descontoTipo ? (descontoTipo.value || '') : '';
+            pdfButton.dataset.descontoValor = descontoValor ? (descontoValor.value || '') : '';
+        });
+    });
+
+    document.querySelectorAll('.mensal-forma-pagamento').forEach(function(select) {
+        const clienteId = select.dataset.clienteId;
+        const avistaCampos = document.getElementById('mensalAvistaCampos' + clienteId);
+        const parceladoCampos = document.getElementById('mensalParceladoCampos' + clienteId);
+        const parceladoTexto = document.getElementById('mensalParceladoTexto' + clienteId);
+        const inputDataPagamento = avistaCampos ? avistaCampos.querySelector('input[name="data_pagamento"]') : null;
+        const inputDataPrimeira = parceladoCampos ? parceladoCampos.querySelector('input[name="data_primeira_parcela"]') : null;
+        const inputParcelas = parceladoCampos ? parceladoCampos.querySelector('input[name="parcelas"]') : null;
+
+        function atualizarCamposPagamentoMensal() {
+            const option = select.options[select.selectedIndex];
+            const tipo = option ? (option.dataset.tipo || '') : '';
+            const ehParcelado = tipo === 'Parcelado';
+
+            if (avistaCampos) {
+                avistaCampos.style.display = ehParcelado ? 'none' : (select.value ? 'flex' : 'none');
+            }
+            if (parceladoCampos) {
+                parceladoCampos.style.display = ehParcelado ? 'flex' : 'none';
+            }
+            if (parceladoTexto) {
+                parceladoTexto.style.display = ehParcelado ? 'block' : 'none';
+            }
+            if (inputDataPagamento) {
+                inputDataPagamento.required = !!select.value && !ehParcelado;
+            }
+            if (inputDataPrimeira) {
+                inputDataPrimeira.required = ehParcelado;
+                if (!ehParcelado) {
+                    inputDataPrimeira.value = '';
+                }
+            }
+            if (inputParcelas) {
+                inputParcelas.required = ehParcelado;
+                inputParcelas.min = 1;
+                if (!ehParcelado) {
+                    inputParcelas.value = 1;
+                }
+            }
+        }
+
+        select.addEventListener('change', atualizarCamposPagamentoMensal);
+        atualizarCamposPagamentoMensal();
+    });
+
+    document.querySelectorAll('.mensal-desconto-tipo').forEach(function(select) {
+        const clienteId = select.dataset.clienteId;
+        const valorInput = document.querySelector('.mensal-desconto-valor[data-cliente-id="' + clienteId + '"]');
+        if (!valorInput) {
+            return;
+        }
+
+        function atualizarDescontoMensal() {
+            if (!select.value) {
+                valorInput.value = 0;
+                valorInput.disabled = true;
+                valorInput.removeAttribute('max');
+                return;
+            }
+
+            valorInput.disabled = false;
+            if (select.value === 'percentual') {
+                valorInput.max = 100;
+            } else {
+                valorInput.removeAttribute('max');
+            }
+        }
+
+        select.addEventListener('change', atualizarDescontoMensal);
+        atualizarDescontoMensal();
+    });
+
+    document.querySelectorAll('.mensal-status-select').forEach(function(select) {
+        const clienteId = select.dataset.clienteId;
+        const parcelasContainer = document.getElementById('mensalParcelasStatusContainer' + clienteId);
+        if (!parcelasContainer) {
+            return;
+        }
+
+        function atualizarVisibilidadeParcelasMensais() {
+            parcelasContainer.style.display = select.value === 'Paga' ? 'block' : 'none';
+        }
+
+        select.addEventListener('change', atualizarVisibilidadeParcelasMensais);
+        atualizarVisibilidadeParcelasMensais();
+    });
+
+    document.querySelectorAll('select[id^="status"]').forEach(function(select) {
+        const ordemId = select.id.replace('status', '');
+        const parcelasContainer = document.getElementById('parcelasStatusContainer' + ordemId);
+        if (!parcelasContainer) {
+            return;
+        }
+
+        function atualizarVisibilidadeParcelas() {
+            parcelasContainer.style.display = select.value === 'Paga' ? 'block' : 'none';
+        }
+
+        select.addEventListener('change', atualizarVisibilidadeParcelas);
+        atualizarVisibilidadeParcelas();
+    });
+});
+</script>
 {% endblock %}

@@ -10,17 +10,34 @@
     <div class="col-12">
         <div class="card">
             <div class="card-body">
-                <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
-                    <div class="d-flex gap-2 flex-wrap">
-                        <button class="btn btn-outline-primary btn-sm periodo-btn" data-periodo="30">30 Dias</button>
-                        <button class="btn btn-outline-primary btn-sm periodo-btn" data-periodo="60">60 Dias</button>
-                        <button class="btn btn-outline-primary btn-sm periodo-btn" data-periodo="90">90 Dias</button>
-                        <button class="btn btn-outline-primary btn-sm periodo-btn" data-periodo="180">180 Dias</button>
-                        <button class="btn btn-outline-primary btn-sm periodo-btn" data-periodo="ano_vigente">Ano Vigente</button>
+                <div class="row align-items-end">
+                    <div class="col-md-4">
+                        <label for="filtroData" class="form-label">
+                            <i class="bi bi-calendar-range"></i> Filtrar por Período
+                        </label>
+                        <div class="input-group">
+                            <input type="text" class="form-control" id="filtroData" inputmode="numeric" autocomplete="off" placeholder="dd/mm/aaaa a dd/mm/aaaa">
+                            <button class="btn btn-outline-secondary" type="button" id="btnAbrirCalendario" aria-label="Abrir calendário">
+                                <i class="bi bi-calendar3"></i>
+                            </button>
+                        </div>
+                        <input type="text" id="filtroDataPicker" tabindex="-1" aria-hidden="true" style="position:absolute; opacity:0; pointer-events:none; width:1px; height:1px; border:0; padding:0;">
                     </div>
-                    <button class="btn btn-outline-danger btn-sm" id="btnResetFiltros">
-                        <i class="bi bi-arrow-counterclockwise"></i> Remover Filtros
-                    </button>
+                    <div class="col-md-2">
+                        <button class="btn btn-primary w-100" id="btnAplicarFiltroData">
+                            <i class="bi bi-check-circle"></i> Aplicar
+                        </button>
+                    </div>
+                    <div class="col-md-2">
+                        <button class="btn btn-success w-100" id="btnTodoPeriodo">
+                            <i class="bi bi-calendar-check"></i> Todo Período
+                        </button>
+                    </div>
+                    <div class="col-md-2">
+                        <button class="btn btn-outline-danger w-100" id="btnResetFiltros">
+                            <i class="bi bi-arrow-counterclockwise"></i> Limpar
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -48,7 +65,7 @@
         <div class="card text-center">
             <div class="card-body">
                 <h5 class="card-title"><i class="bi bi-currency-dollar text-info"></i> Total Faturado</h5>
-                <h2 class="text-info">R$ {{ "%.2f"|format(stats.total_faturado) }}</h2>
+                <h2 class="text-info">R$ {{ stats.total_faturado|moeda_br }}</h2>
             </div>
         </div>
     </div>
@@ -57,7 +74,7 @@
         <div class="card text-center">
             <div class="card-body">
                 <h5 class="card-title"><i class="bi bi-truck text-success"></i> Total Frete/Deslocamento</h5>
-                <h2 class="text-success">R$ {{ "%.2f"|format(stats.total_frete_deslocamento) }}</h2>
+                <h2 class="text-success">R$ {{ stats.total_frete_deslocamento|moeda_br }}</h2>
             </div>
         </div>
     </div>
@@ -65,7 +82,7 @@
         <div class="card text-center">
             <div class="card-body">
                 <h5 class="card-title"><i class="bi bi-cash-coin text-warning"></i> Pagamentos em Aberto</h5>
-                <h2 class="text-warning">R$ {{ "%.2f"|format(stats.pagamentos_em_aberto) }}</h2>
+                <h2 class="text-warning">R$ {{ stats.pagamentos_em_aberto|moeda_br }}</h2>
             </div>
         </div>
     </div>
@@ -73,7 +90,7 @@
         <div class="card text-center">
             <div class="card-body">
                 <h5 class="card-title"><i class="bi bi-box-seam text-primary"></i> Material Bruto</h5>
-                <h2 class="text-primary">R$ {{ "%.2f"|format(stats.material_bruto) }}</h2>
+                <h2 class="text-primary">R$ {{ stats.material_bruto|moeda_br }}</h2>
             </div>
         </div>
     </div>
@@ -81,7 +98,23 @@
         <div class="card text-center">
             <div class="card-body">
                 <h5 class="card-title"><i class="bi bi-graph-up-arrow text-success"></i> Material Lucro</h5>
-                <h2 class="text-success">R$ {{ "%.2f"|format(stats.material_lucro) }}</h2>
+                <h2 class="text-success">R$ {{ stats.material_lucro|moeda_br }}</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card text-center">
+            <div class="card-body">
+                <h5 class="card-title"><i class="bi bi-tools text-info"></i> Total Serviço Realizado</h5>
+                <h2 class="text-info">R$ {{ stats.total_servico_realizado|moeda_br }}</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card text-center">
+            <div class="card-body">
+                <h5 class="card-title"><i class="bi bi-check-circle text-success"></i> Total Serviço Faturado</h5>
+                <h2 class="text-success">R$ {{ stats.total_servico_faturado|moeda_br }}</h2>
             </div>
         </div>
     </div>
@@ -117,77 +150,174 @@
 
 {% block extra_js %}
 {{ super() }}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+<script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/pt.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0/dist/chartjs-plugin-datalabels.min.js"></script>
 <script>
     var statusChart = null;
-    var periodoAtivo = null;
+    var dataFiltroAtivo = null;
+    var flatpickrInstance = null;
+    var separadorPeriodo = ' a ';
 
-    function atualizarDashboard(periodo) {
-        periodoAtivo = periodo;
-        
-        // Atualizar estado dos botões
-        document.querySelectorAll('.periodo-btn').forEach(btn => {
-            if (btn.dataset.periodo === periodo) {
-                btn.classList.remove('btn-outline-primary');
-                btn.classList.add('btn-primary');
-            } else {
-                btn.classList.remove('btn-primary');
-                btn.classList.add('btn-outline-primary');
-            }
+    function formatarMoeda(valor) {
+        if (valor === null || valor === undefined || Number.isNaN(Number(valor))) {
+            valor = 0;
+        }
+
+        return Number(valor).toLocaleString('pt-BR', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
         });
-        
-        // Fazer requisição AJAX
-        fetch(`/api/dashboard/stats?periodo=${periodo || ''}`)
+    }
+
+    function formatarDataInput(valor) {
+        var numeros = (valor || '').replace(/\D/g, '').slice(0, 16);
+        var primeiraData = numeros.slice(0, 8);
+        var segundaData = numeros.slice(8, 16);
+
+        function aplicarMascaraData(dataNumerica) {
+            var resultado = dataNumerica;
+            if (resultado.length > 2) {
+                resultado = resultado.slice(0, 2) + '/' + resultado.slice(2);
+            }
+            if (resultado.length > 5) {
+                resultado = resultado.slice(0, 5) + '/' + resultado.slice(5);
+            }
+            return resultado;
+        }
+
+        var valorFormatado = aplicarMascaraData(primeiraData);
+        if (segundaData.length > 0) {
+            valorFormatado += separadorPeriodo + aplicarMascaraData(segundaData);
+        }
+
+        return valorFormatado;
+    }
+
+    function parseDataBR(valor) {
+        if (!/^\d{2}\/\d{2}\/\d{4}$/.test(valor)) {
+            return null;
+        }
+
+        var partes = valor.split('/');
+        var dia = parseInt(partes[0], 10);
+        var mes = parseInt(partes[1], 10) - 1;
+        var ano = parseInt(partes[2], 10);
+        var data = new Date(ano, mes, dia);
+
+        if (data.getFullYear() !== ano || data.getMonth() !== mes || data.getDate() !== dia) {
+            return null;
+        }
+
+        return data;
+    }
+
+    function formatarDataISO(data) {
+        var ano = data.getFullYear();
+        var mes = String(data.getMonth() + 1).padStart(2, '0');
+        var dia = String(data.getDate()).padStart(2, '0');
+        return ano + '-' + mes + '-' + dia;
+    }
+
+    function obterPeriodoDoCampo() {
+        var valor = document.getElementById('filtroData').value.trim();
+        if (!valor) {
+            return null;
+        }
+
+        var datasEncontradas = valor.match(/\d{2}\/\d{2}\/\d{4}/g);
+        if ((!datasEncontradas || datasEncontradas.length < 2) && flatpickrInstance) {
+            var datasSelecionadas = flatpickrInstance.selectedDates || [];
+            if (datasSelecionadas.length === 2) {
+                return {
+                    inicio: formatarDataISO(datasSelecionadas[0]),
+                    fim: formatarDataISO(datasSelecionadas[1]),
+                    datas: [datasSelecionadas[0], datasSelecionadas[1]]
+                };
+            }
+        }
+
+        if (!datasEncontradas || datasEncontradas.length < 2) {
+            return null;
+        }
+
+        var dataInicio = parseDataBR(datasEncontradas[0]);
+        var dataFim = parseDataBR(datasEncontradas[1]);
+        if (!dataInicio || !dataFim) {
+            return null;
+        }
+
+        if (dataInicio > dataFim) {
+            var troca = dataInicio;
+            dataInicio = dataFim;
+            dataFim = troca;
+        }
+
+        return {
+            inicio: formatarDataISO(dataInicio),
+            fim: formatarDataISO(dataFim),
+            datas: [dataInicio, dataFim]
+        };
+    }
+
+    function atualizarDashboard(dataInicio, dataFim) {
+        dataFiltroAtivo = dataInicio && dataFim ? { inicio: dataInicio, fim: dataFim } : null;
+
+        var url = '/api/dashboard/stats';
+        if (dataInicio && dataFim) {
+            url += '?data_inicio=' + encodeURIComponent(dataInicio) + '&data_fim=' + encodeURIComponent(dataFim);
+        }
+
+        fetch(url)
             .then(response => response.json())
             .then(data => {
                 if (data.error) {
                     console.error('Erro ao buscar estatísticas:', data.error);
                     return;
                 }
-                
-                // Atualizar cards
+
                 atualizarCards(data);
-                
-                // Atualizar gráfico
-                atualizarGrafico(data.status_counts);
+                atualizarGrafico(data.status_counts || {});
             })
             .catch(error => {
                 console.error('Erro na requisição:', error);
             });
     }
-    
+
     function atualizarCards(stats) {
         var cards = document.querySelectorAll('#dashboardCards .col-md-4');
-        if (cards.length >= 7) {
+        if (cards.length >= 9) {
             cards[0].querySelector('h2').textContent = stats.clientes;
             cards[1].querySelector('h2').textContent = stats.ordens_servico;
-            cards[2].querySelector('h2').textContent = 'R$ ' + stats.total_faturado.toFixed(2);
-            cards[3].querySelector('h2').textContent = 'R$ ' + stats.total_frete_deslocamento.toFixed(2);
-            cards[4].querySelector('h2').textContent = 'R$ ' + stats.pagamentos_em_aberto.toFixed(2);
-            cards[5].querySelector('h2').textContent = 'R$ ' + (stats.material_bruto || 0).toFixed(2);
-            cards[6].querySelector('h2').textContent = 'R$ ' + (stats.material_lucro || 0).toFixed(2);
+            cards[2].querySelector('h2').textContent = 'R$ ' + formatarMoeda(stats.total_faturado);
+            cards[3].querySelector('h2').textContent = 'R$ ' + formatarMoeda(stats.total_frete_deslocamento);
+            cards[4].querySelector('h2').textContent = 'R$ ' + formatarMoeda(stats.pagamentos_em_aberto);
+            cards[5].querySelector('h2').textContent = 'R$ ' + formatarMoeda(stats.material_bruto || 0);
+            cards[6].querySelector('h2').textContent = 'R$ ' + formatarMoeda(stats.material_lucro || 0);
+            cards[7].querySelector('h2').textContent = 'R$ ' + formatarMoeda(stats.total_servico_realizado || 0);
+            cards[8].querySelector('h2').textContent = 'R$ ' + formatarMoeda(stats.total_servico_faturado || 0);
         }
     }
-    
+
     function atualizarGrafico(statusCounts) {
         var labels = Object.keys(statusCounts);
         var data = Object.values(statusCounts);
-        
+
         if (labels.length === 0) {
             if (statusChart) {
                 statusChart.destroy();
             }
-            var ctx = document.getElementById('statusChart').getContext('2d');
-            ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-            ctx.font = '16px Arial';
-            ctx.fillStyle = '#888';
-            ctx.textAlign = 'center';
-            ctx.fillText('Nenhum dado de status para exibir', ctx.canvas.width / 2, ctx.canvas.height / 2);
+            var ctxVazio = document.getElementById('statusChart').getContext('2d');
+            ctxVazio.clearRect(0, 0, ctxVazio.canvas.width, ctxVazio.canvas.height);
+            ctxVazio.font = '16px Arial';
+            ctxVazio.fillStyle = '#888';
+            ctxVazio.textAlign = 'center';
+            ctxVazio.fillText('Nenhum dado de status para exibir', ctxVazio.canvas.width / 2, ctxVazio.canvas.height / 2);
             return;
         }
-        
-        // Cores neutras em tom azul
+
         var bluePalette = [
             'rgba(173, 216, 230, 0.8)',
             'rgba(100, 149, 237, 0.8)',
@@ -196,19 +326,15 @@
             'rgba(128, 140, 153, 0.8)',
             'rgba(95, 158, 160, 0.8)'
         ];
-        
-        var backgroundColors = labels.map((label, index) => {
-            return bluePalette[index % bluePalette.length];
-        });
-        
+
+        var backgroundColors = labels.map((label, index) => bluePalette[index % bluePalette.length]);
         var borderColors = backgroundColors.map(color => color.replace('0.8', '1'));
-        
         var ctx = document.getElementById('statusChart').getContext('2d');
-        
+
         if (statusChart) {
             statusChart.destroy();
         }
-        
+
         statusChart = new Chart(ctx, {
             type: 'bar',
             data: {
@@ -232,7 +358,7 @@
                     datalabels: {
                         anchor: 'end',
                         align: 'top',
-                        formatter: (value) => value,
+                        formatter: function(value) { return value; },
                         color: '#000',
                         font: {
                             weight: 'bold'
@@ -259,23 +385,105 @@
 
     document.addEventListener('DOMContentLoaded', function() {
         var statusCounts = {{ stats.status_counts | tojson }};
-        
-        // Inicializar gráfico
-        atualizarGrafico(statusCounts);
-        
-        // Event listeners para botões de período
-        document.querySelectorAll('.periodo-btn').forEach(btn => {
-            btn.addEventListener('click', function() {
-                var periodo = this.dataset.periodo;
-                atualizarDashboard(periodo);
+        var filtroDataElement = document.getElementById('filtroData');
+        var filtroDataPickerElement = document.getElementById('filtroDataPicker');
+        var btnAbrirCalendario = document.getElementById('btnAbrirCalendario');
+
+        atualizarGrafico(statusCounts || {});
+
+        if (filtroDataPickerElement) {
+            flatpickrInstance = flatpickr(filtroDataPickerElement, {
+                mode: 'range',
+                dateFormat: 'd/m/Y',
+                locale: 'pt',
+                allowInput: false,
+                clickOpens: false,
+                disableMobile: true,
+                conjunction: separadorPeriodo,
+                onChange: function(selectedDates) {
+                    if (selectedDates.length === 2) {
+                        filtroDataElement.value =
+                            flatpickr.formatDate(selectedDates[0], 'd/m/Y') +
+                            separadorPeriodo +
+                            flatpickr.formatDate(selectedDates[1], 'd/m/Y');
+                    }
+                },
+                onClose: function(selectedDates) {
+                    if (selectedDates.length === 2) {
+                        filtroDataElement.value =
+                            flatpickr.formatDate(selectedDates[0], 'd/m/Y') +
+                            separadorPeriodo +
+                            flatpickr.formatDate(selectedDates[1], 'd/m/Y');
+                    } else if (selectedDates.length === 0) {
+                        filtroDataElement.value = '';
+                    }
+                }
             });
-        });
-        
-        // Event listener para botão de reset
+        }
+
+        if (filtroDataElement) {
+            filtroDataElement.addEventListener('input', function(event) {
+                var valorFormatado = formatarDataInput(event.target.value);
+                if (event.target.value !== valorFormatado) {
+                    event.target.value = valorFormatado;
+                }
+            });
+
+            filtroDataElement.addEventListener('blur', function() {
+                var periodo = obterPeriodoDoCampo();
+                if (periodo && flatpickrInstance) {
+                    flatpickrInstance.setDate(periodo.datas, false, 'd/m/Y');
+                    filtroDataElement.value =
+                        flatpickr.formatDate(periodo.datas[0], 'd/m/Y') +
+                        separadorPeriodo +
+                        flatpickr.formatDate(periodo.datas[1], 'd/m/Y');
+                } else if (!periodo && flatpickrInstance) {
+                    flatpickrInstance.clear();
+                }
+            });
+        }
+
+        if (btnAbrirCalendario) {
+            btnAbrirCalendario.addEventListener('click', function() {
+                if (flatpickrInstance) {
+                    flatpickrInstance.open();
+                }
+            });
+        }
+
         document.getElementById('btnResetFiltros').addEventListener('click', function() {
-            if (confirm('Deseja realmente remover todos os filtros e voltar aos dados completos?')) {
-                atualizarDashboard(null);
+            if (flatpickrInstance) {
+                flatpickrInstance.clear();
             }
+            if (filtroDataElement) {
+                filtroDataElement.value = '';
+            }
+            dataFiltroAtivo = null;
+            atualizarDashboard();
+        });
+
+        document.getElementById('btnTodoPeriodo').addEventListener('click', function() {
+            if (flatpickrInstance) {
+                flatpickrInstance.clear();
+            }
+            if (filtroDataElement) {
+                filtroDataElement.value = '';
+            }
+            dataFiltroAtivo = null;
+            atualizarDashboard();
+        });
+
+        document.getElementById('btnAplicarFiltroData').addEventListener('click', function() {
+            var periodoDigitado = obterPeriodoDoCampo();
+            if (periodoDigitado) {
+                if (flatpickrInstance) {
+                    flatpickrInstance.setDate(periodoDigitado.datas, false, 'd/m/Y');
+                }
+                atualizarDashboard(periodoDigitado.inicio, periodoDigitado.fim);
+                return;
+            }
+
+            alert('Informe um período completo no formato DD/MM/AAAA a DD/MM/AAAA ou selecione as duas datas no calendário.');
         });
     });
 </script>

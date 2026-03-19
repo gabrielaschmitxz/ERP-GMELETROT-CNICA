@@ -40,7 +40,7 @@
                                     <span class="badge bg-secondary">Inativo</span>
                                 {% endif %}
                                 <form method="POST" action="{{ url_for('materiais.toggle_ativo', id=material.id) }}" 
-                                      class="d-inline" onsubmit="return confirm('Tem certeza que deseja {{ 'desativar' if material.ativo else 'ativar' }} este material?');">
+                                      class="d-inline" onsubmit="return confirm('Tem certeza que deseja {{ 'desativar' if material.ativo else 'ativar' }} este material');">
                                     <button type="submit" class="btn btn-sm btn-{{ 'secondary' if material.ativo else 'success' }}" 
                                             title="{{ 'Desativar' if material.ativo else 'Ativar' }}">
                                         <i class="bi bi-{{ 'x-circle' if material.ativo else 'check-circle' }}"></i>
@@ -55,7 +55,7 @@
                                     <i class="bi bi-pencil"></i> Editar
                                 </a>
                                 <form method="POST" action="{{ url_for('materiais.excluir', id=material.id) }}" 
-                                      class="d-inline" onsubmit="return confirm('Deseja realmente excluir?');">
+                                      class="d-inline" onsubmit="return confirm('Deseja realmente excluir');">
                                     <button type="submit" class="btn btn-sm btn-danger">
                                         <i class="bi bi-trash"></i> Excluir
                                     </button>

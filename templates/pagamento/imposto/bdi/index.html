@@ -80,7 +80,7 @@
                                                     <span class="badge bg-secondary">Inativo</span>
                                                 {% endif %}
                                                 <form method="POST" action="{{ url_for('configuracoes.toggle_ativo_pagamento', id=forma.id) }}"
-                                                      class="d-inline" onsubmit="return confirm('Tem certeza que deseja {{ 'desativar' if forma.ativo else 'ativar' }} esta forma de pagamento?');">
+                                                      class="d-inline" onsubmit="return confirm('Tem certeza que deseja {{ 'desativar' if forma.ativo else 'ativar' }} esta forma de pagamento');">
                                                     <button type="submit" class="btn btn-sm btn-{{ 'secondary' if forma.ativo else 'success' }}" 
                                                             title="{{ 'Desativar' if forma.ativo else 'Ativar' }}">
                                                         <i class="bi bi-{{ 'x-circle' if forma.ativo else 'check-circle' }}"></i>
@@ -96,7 +96,7 @@
                                                 <i class="bi bi-pencil"></i> Editar
                                             </button>
                                             <form method="POST" action="{{ url_for('configuracoes.excluir_pagamento', id=forma.id) }}"
-                                                  class="d-inline" onsubmit="return confirm('Deseja realmente excluir esta forma de pagamento?');">
+                                                  class="d-inline" onsubmit="return confirm('Deseja realmente excluir esta forma de pagamento');">
                                                 <button type="submit" class="btn btn-sm btn-danger">
                                                     <i class="bi bi-trash"></i> Excluir
                                                 </button>
@@ -159,7 +159,7 @@
                                                     <span class="badge bg-secondary">Inativo</span>
                                                 {% endif %}
                                                 <form method="POST" action="{{ url_for('configuracoes.toggle_ativo_imposto', id=imposto.id) }}"
-                                                      class="d-inline" onsubmit="return confirm('Tem certeza que deseja {{ 'desativar' if imposto.ativo else 'ativar' }} este imposto?');">
+                                                      class="d-inline" onsubmit="return confirm('Tem certeza que deseja {{ 'desativar' if imposto.ativo else 'ativar' }} este imposto');">
                                                     <button type="submit" class="btn btn-sm btn-{{ 'secondary' if imposto.ativo else 'success' }}" 
                                                             title="{{ 'Desativar' if imposto.ativo else 'Ativar' }}">
                                                         <i class="bi bi-{{ 'x-circle' if imposto.ativo else 'check-circle' }}"></i>
@@ -174,7 +174,7 @@
                                                 <i class="bi bi-pencil"></i> Editar
                                             </button>
                                             <form method="POST" action="{{ url_for('configuracoes.excluir_imposto', id=imposto.id) }}"
-                                                  class="d-inline" onsubmit="return confirm('Deseja realmente excluir este imposto?');">
+                                                  class="d-inline" onsubmit="return confirm('Deseja realmente excluir este imposto');">
                                                 <button type="submit" class="btn btn-sm btn-danger">
                                                     <i class="bi bi-trash"></i> Excluir
                                                 </button>
@@ -237,7 +237,7 @@
                                                     <span class="badge bg-secondary">Inativo</span>
                                                 {% endif %}
                                                 <form method="POST" action="{{ url_for('configuracoes.toggle_ativo_bdi', id=item.id) }}"
-                                                      class="d-inline" onsubmit="return confirm('Tem certeza que deseja {{ 'desativar' if item.ativo else 'ativar' }} este BDI?');">
+                                                      class="d-inline" onsubmit="return confirm('Tem certeza que deseja {{ 'desativar' if item.ativo else 'ativar' }} este BDI');">
                                                     <button type="submit" class="btn btn-sm btn-{{ 'secondary' if item.ativo else 'success' }}" 
                                                             title="{{ 'Desativar' if item.ativo else 'Ativar' }}">
                                                         <i class="bi bi-{{ 'x-circle' if item.ativo else 'check-circle' }}"></i>
@@ -252,7 +252,7 @@
                                                 <i class="bi bi-pencil"></i> Editar
                                             </button>
                                             <form method="POST" action="{{ url_for('configuracoes.excluir_bdi', id=item.id) }}" 
-                                                  class="d-inline" onsubmit="return confirm('Deseja realmente excluir este BDI?');">
+                                                  class="d-inline" onsubmit="return confirm('Deseja realmente excluir este BDI');">
                                                 <button type="submit" class="btn btn-sm btn-danger">
                                                     <i class="bi bi-trash"></i> Excluir
                                                 </button>

@@ -55,16 +55,16 @@ def show_ordens_servico():
         FROM ordens_servico os
         JOIN clientes c ON os.cliente_id = c.id
         LEFT JOIN formas_pagamento fp ON os.forma_pagamento_id = fp.id
-        WHERE os.data BETWEEN ? AND ?
+        WHERE os.data BETWEEN  AND 
     """
     params = [data_inicio.strftime('%Y-%m-%d'), data_fim.strftime('%Y-%m-%d')]
     
     if cliente_filter != "Todos":
-        query += " AND c.nome = ?"
+        query += " AND c.nome = "
         params.append(cliente_filter)
     
     if status_filter != "Todos":
-        query += " AND os.status = ?"
+        query += " AND os.status = "
         params.append(status_filter)
     
     query += " ORDER BY os.data DESC"
@@ -351,7 +351,7 @@ def show_estratificacao_lucro():
         FROM ordens_servico os
         LEFT JOIN itens_material im ON os.id = im.ordem_id
         LEFT JOIN itens_servico is_val ON os.id = is_val.ordem_id
-        WHERE os.data >= ? AND os.status = 'Paga'
+        WHERE os.data >=  AND os.status = 'Paga'
         GROUP BY os.id
     """
     
@@ -489,7 +489,7 @@ def show_relatorios():
         FROM ordens_servico os
         JOIN clientes c ON os.cliente_id = c.id
         LEFT JOIN formas_pagamento fp ON os.forma_pagamento_id = fp.id
-        WHERE os.data >= ?
+        WHERE os.data >= 
         ORDER BY os.data DESC
     """
     

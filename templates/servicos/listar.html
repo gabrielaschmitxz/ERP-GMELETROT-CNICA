@@ -38,7 +38,7 @@
                                     <span class="badge bg-secondary">Inativo</span>
                                 {% endif %}
                                 <form method="POST" action="{{ url_for('servicos.toggle_ativo', id=servico.id) }}" 
-                                      class="d-inline" onsubmit="return confirm('Tem certeza que deseja {{ 'desativar' if servico.ativo else 'ativar' }} este serviço?');">
+                                      class="d-inline" onsubmit="return confirm('Tem certeza que deseja {{ 'desativar' if servico.ativo else 'ativar' }} este serviço');">
                                     <button type="submit" class="btn btn-sm btn-{{ 'secondary' if servico.ativo else 'success' }}" 
                                             title="{{ 'Desativar' if servico.ativo else 'Ativar' }}">
                                         <i class="bi bi-{{ 'x-circle' if servico.ativo else 'check-circle' }}"></i>
@@ -53,7 +53,7 @@
                                     <i class="bi bi-pencil"></i> Editar
                                 </a>
                                 <form method="POST" action="{{ url_for('servicos.excluir', id=servico.id) }}" 
-                                      class="d-inline" onsubmit="return confirm('Deseja realmente excluir?');">
+                                      class="d-inline" onsubmit="return confirm('Deseja realmente excluir');">
                                     <button type="submit" class="btn btn-sm btn-danger">
                                         <i class="bi bi-trash"></i> Excluir
                                     </button>

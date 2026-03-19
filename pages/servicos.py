@@ -46,7 +46,7 @@ def show_servicos_list():
     params = []
     
     if search_term:
-        query += " WHERE nome LIKE ?"
+        query += " WHERE nome LIKE "
         params.append(f"%{search_term}%")
     
     if sort_by == "Nome":
@@ -159,7 +159,7 @@ def show_novo_servico():
                 conn = get_db_connection()
                 cursor = conn.cursor()
                 
-                cursor.execute("SELECT id FROM servicos WHERE nome = ?", (nome,))
+                cursor.execute("SELECT id FROM servicos WHERE nome = ", (nome,))
                 if cursor.fetchone():
                     st.error("Serviço com mesmo nome já cadastrado!")
                     conn.close()
@@ -168,7 +168,7 @@ def show_novo_servico():
                 # Inserir serviço
                 cursor.execute("""
                     INSERT INTO servicos (nome, preco_unit, tempo_h)
-                    VALUES (?, ?, ?)
+                    VALUES (, , )
                 """, (nome, preco_unit, tempo_h))
                 
                 conn.commit()
@@ -249,7 +249,7 @@ def show_editar_servico():
                 conn = get_db_connection()
                 cursor = conn.cursor()
                 
-                cursor.execute("SELECT id FROM servicos WHERE nome = ? AND id != ?", (nome, servico_id))
+                cursor.execute("SELECT id FROM servicos WHERE nome =  AND id != ", (nome, servico_id))
                 if cursor.fetchone():
                     st.error("Serviço com mesmo nome já cadastrado!")
                     conn.close()
@@ -258,8 +258,8 @@ def show_editar_servico():
                 # Atualizar serviço
                 cursor.execute("""
                     UPDATE servicos 
-                    SET nome = ?, preco_unit = ?, tempo_h = ?
-                    WHERE id = ?
+                    SET nome = , preco_unit = , tempo_h = 
+                    WHERE id = 
                 """, (nome, preco_unit, tempo_h, servico_id))
                 
                 conn.commit()
@@ -272,14 +272,14 @@ def show_editar_servico():
             # Verificar se o serviço é usado em ordens de serviço
             conn = get_db_connection()
             cursor = conn.cursor()
-            cursor.execute("SELECT COUNT(*) FROM itens_servico WHERE servico_id = ?", (servico_id,))
+            cursor.execute("SELECT COUNT(*) FROM itens_servico WHERE servico_id = ", (servico_id,))
             count_uso = cursor.fetchone()[0]
             
             if count_uso > 0:
                 st.error(f"Não é possível excluir o serviço pois ele é usado em {count_uso} ordem(ns) de serviço.")
             else:
                 # Excluir serviço
-                cursor.execute("DELETE FROM servicos WHERE id = ?", (servico_id,))
+                cursor.execute("DELETE FROM servicos WHERE id = ", (servico_id,))
                 conn.commit()
                 conn.close()
                 

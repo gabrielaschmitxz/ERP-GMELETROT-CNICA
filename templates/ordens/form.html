@@ -1,6 +1,6 @@
-{% extends "base.html" %}
+﻿{% extends "base.html" %}
 
-{% block title %}{{ 'Editar' if ordem else 'Nova' }} Ordem de Serviço - ERP Eletrotécnica{% endblock %}
+{% block title %}{{ 'Editar' if ordem else 'Nova' }} Ordem/Orçamento - ERP Eletrotécnica{% endblock %}
 
 {% block extra_css %}
 <style>
@@ -27,10 +27,25 @@
 {% endblock %}
 
 {% block content %}
-<h2 class="mb-4"><i class="bi bi-file-earmark-plus"></i> {{ 'Editar' if ordem else 'Nova' }} Ordem de Serviço</h2>
+<h2 class="mb-4" id="pageTitleOrdem"><i class="bi bi-file-earmark-plus"></i> {{ 'Editar' if ordem else 'Nova' }} Ordem/Orçamento</h2>
 
 <form id="ordemForm">
     <input type="hidden" id="ordem_id" value="{{ ordem.id if ordem else '' }}">
+    <div class="card mb-3">
+        <div class="card-header"><strong>Tipo</strong></div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-4">
+                    <label for="tipo_documento" class="form-label">Tipo de Documento</label>
+                    <select class="form-select" id="tipo_documento">
+                        <option value="OS" {% if ordem and ordem.get('tipo_documento') == 'OS' %}selected{% endif %}>Ordem de Serviço</option>
+                        <option value="ORC" {% if ordem and ordem.get('tipo_documento') == 'ORC' %}selected{% endif %}>Orçamento</option>
+                    </select>
+                    <div class="form-text">Orçamentos possuem numeração própria e não entram no financeiro/dash.</div>
+                </div>
+            </div>
+        </div>
+    </div>
     <!-- Cliente -->
     <div class="card mb-3">
         <div class="card-header"><strong>Cliente</strong></div>
@@ -216,10 +231,17 @@
                 </div>
             </div>
             <div class="row mb-3">
-                <div class="col-md-5">
+                <div class="col-md-2">
+                    <label class="form-label">Tipo de Desconto</label>
+                    <select class="form-select" id="desconto_tipo">
+                        <option value="fixo">Valor Fixo</option>
+                        <option value="percentual">Porcentagem (%)</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
                     <label class="form-label">Desconto</label>
                     <div class="input-group">
-                        <span class="input-group-text">R$</span>
+                        <span class="input-group-text" id="desconto_prefixo">R$</span>
                         <input type="number" class="form-control" id="desconto_valor" step="0.01" min="0" placeholder="0,00">
                     </div>
                 </div>
@@ -260,6 +282,15 @@
                 <div class="col-md-3" id="parcelasContainer" style="display: none;">
                     <label for="parcelas" class="form-label">Número de Parcelas</label>
                     <input type="number" class="form-control" id="parcelas" min="1" value="{{ ordem.parcelas if ordem else '1' }}">
+                </div>
+            </div>
+            <div class="row mb-3" id="parcelasVencimentoContainer" style="display:none;">
+                <div class="col-12">
+                    <div class="alert alert-secondary mb-0">
+                        <strong>Vencimento das parcelas</strong>
+                        <div class="small text-muted">1ª parcela vence em 30 dias a partir da data da ordem (e assim por diante).</div>
+                        <div id="parcelasVencimentoLista" class="mt-2"></div>
+                    </div>
                 </div>
             </div>
             <div class="row">
@@ -303,7 +334,7 @@
     <!-- Botões -->
     <div class="d-flex gap-2">
         <button type="submit" class="btn btn-primary btn-lg">
-            <i class="bi bi-save"></i> Salvar Ordem de Serviço
+            <i class="bi bi-save"></i> <span id="saveSubmitLabel">Salvar Ordem de Serviço</span>
         </button>
         <a href="{{ url_for('ordens.listar') }}" class="btn btn-secondary btn-lg">
             <i class="bi bi-x-circle"></i> Cancelar
@@ -415,6 +446,25 @@ let adicionais = [];
 let distanceData = null;
 let servicosDisponiveis = [];
 let materiaisDisponiveis = [];
+
+function atualizarRotulosPorTipoDocumento() {
+    const tipoSelect = document.getElementById('tipo_documento');
+    const saveLabel = document.getElementById('saveSubmitLabel');
+    const pageTitle = document.getElementById('pageTitleOrdem');
+    if (!tipoSelect || !saveLabel || !pageTitle) return;
+
+    const tipo = tipoSelect.value;
+    if (tipo === 'ORC') {
+        saveLabel.textContent = 'Salvar Orçamento';
+        pageTitle.innerHTML = '<i class="bi bi-file-earmark-plus"></i> {{ "Editar" if ordem else "Novo" }} Orçamento';
+    } else {
+        saveLabel.textContent = 'Salvar Ordem de Serviço';
+        pageTitle.innerHTML = '<i class="bi bi-file-earmark-plus"></i> {{ "Editar" if ordem else "Nova" }} Ordem de Serviço';
+    }
+}
+
+document.getElementById('tipo_documento').addEventListener('change', atualizarRotulosPorTipoDocumento);
+atualizarRotulosPorTipoDocumento();
 
 // Carregar serviços e materiais disponíveis (não mais necessário com busca, mas mantido para compatibilidade)
 async function carregarServicos() {
@@ -1062,7 +1112,25 @@ document.getElementById('btnAddBDI').addEventListener('click', function() {
     atualizarResumo();
 });
 
+// Atualizar prefixo do desconto quando tipo mudar
+document.getElementById('desconto_tipo').addEventListener('change', function() {
+    const prefixo = document.getElementById('desconto_prefixo');
+    const valorInput = document.getElementById('desconto_valor');
+    
+    if (this.value === 'percentual') {
+        prefixo.textContent = '%';
+        valorInput.placeholder = '0,00';
+        valorInput.max = 100; // Limitar a 100%
+    } else {
+        prefixo.textContent = 'R$';
+        valorInput.placeholder = '0,00';
+        valorInput.removeAttribute('max');
+    }
+    valorInput.value = '';
+});
+
 document.getElementById('btnAddDesconto').addEventListener('click', function() {
+    const tipoDesconto = document.getElementById('desconto_tipo').value;
     const valorInput = document.getElementById('desconto_valor');
     const valor = parseFloat(valorInput.value) || 0;
     
@@ -1071,7 +1139,31 @@ document.getElementById('btnAddDesconto').addEventListener('click', function() {
         return;
     }
     
-    adicionais.push({tipo: 'desconto', descricao: 'Desconto', valor: valor});
+    if (tipoDesconto === 'percentual' && valor > 100) {
+        alert('A porcentagem não pode ser maior que 100%!');
+        return;
+    }
+    
+    // Calcular subtotal antes dos descontos para aplicar porcentagem
+    const servicosTotal = servicos.reduce((sum, s) => sum + s.total, 0);
+    const materiaisTotal = materiais.reduce((sum, m) => sum + m.total, 0);
+    const deslocamentoTotal = distanceData ? distanceData.displacement_cost : 0;
+    const impostosTotal = adicionais.filter(a => a.tipo === 'imposto').reduce((sum, a) => sum + a.valor, 0);
+    const bdiTotal = adicionais.filter(a => a.tipo === 'bdi').reduce((sum, a) => sum + a.valor, 0);
+    const subtotalAntesDescontos = servicosTotal + materiaisTotal + deslocamentoTotal + impostosTotal + bdiTotal;
+    
+    let valorDesconto = valor;
+    let descricao = 'Desconto';
+    
+    if (tipoDesconto === 'percentual') {
+        // Calcular valor do desconto baseado na porcentagem
+        valorDesconto = (subtotalAntesDescontos * valor) / 100;
+        descricao = `Desconto (${valor}%)`;
+    } else {
+        descricao = 'Desconto';
+    }
+    
+    adicionais.push({tipo: 'desconto', descricao: descricao, valor: valorDesconto, tipo_calculo: tipoDesconto, valor_original: valor});
     valorInput.value = '';
     atualizarListaAdicionais();
     atualizarResumo();
@@ -1179,10 +1271,14 @@ function atualizarListaAdicionais() {
     adicionais.forEach((a, index) => {
         const div = document.createElement('div');
         div.className = 'item-row';
+        // Mostrar informação adicional para descontos percentuais
+        const infoExtra = a.tipo === 'desconto' && a.tipo_calculo === 'percentual'
+            ? `<small class="text-muted">(${a.valor_original}% aplicado)</small>`
+            : '';
         div.innerHTML = `
             <div class="row">
                 <div class="col-md-3">${a.tipo.charAt(0).toUpperCase() + a.tipo.slice(1)}</div>
-                <div class="col-md-5">${a.descricao}</div>
+                <div class="col-md-5">${a.descricao} ${infoExtra}</div>
                 <div class="col-md-2">R$ ${a.valor.toFixed(2)}</div>
                 <div class="col-md-2">
                     <button type="button" class="btn btn-sm btn-danger btn-remover-adicional" data-index="${index}">
@@ -1204,7 +1300,7 @@ function atualizarListaAdicionais() {
 }
 
 function removerServico(index) {
-    if (confirm('Deseja realmente remover este serviço?')) {
+    if (confirm('Deseja realmente remover este serviço')) {
         servicos.splice(index, 1);
         atualizarListaServicos();
         atualizarResumo();
@@ -1212,7 +1308,7 @@ function removerServico(index) {
 }
 
 function removerMaterial(index) {
-    if (confirm('Deseja realmente remover este material?')) {
+    if (confirm('Deseja realmente remover este material')) {
         materiais.splice(index, 1);
         atualizarListaMateriais();
         atualizarResumo();
@@ -1304,19 +1400,70 @@ function verificarParcelas() {
     const option = formaPagamentoSelect.options[formaPagamentoSelect.selectedIndex];
     const parcelasContainer = document.getElementById('parcelasContainer');
     const parcelasInput = document.getElementById('parcelas');
+    const vencContainer = document.getElementById('parcelasVencimentoContainer');
     
     if (option.value && option.dataset.tipo === 'Parcelado') {
         parcelasContainer.style.display = 'block';
         parcelasInput.max = option.dataset.parcelas || 12;
         parcelasInput.required = true; // Torna o campo obrigatório
+        atualizarVencimentosParcelas();
     } else {
         parcelasContainer.style.display = 'none';
         parcelasInput.required = false; // Remove a obrigatoriedade
+        if (vencContainer) vencContainer.style.display = 'none';
     }
+}
+
+function formatarDataBR(dateObj) {
+    const d = String(dateObj.getDate()).padStart(2, '0');
+    const m = String(dateObj.getMonth() + 1).padStart(2, '0');
+    const y = dateObj.getFullYear();
+    return `${d}/${m}/${y}`;
+}
+
+function atualizarVencimentosParcelas() {
+    const formaPagamentoSelect = document.getElementById('forma_pagamento_id');
+    const option = formaPagamentoSelect.options[formaPagamentoSelect.selectedIndex];
+    const parcelasInput = document.getElementById('parcelas');
+    const dataOrdemInput = document.getElementById('data_ordem');
+    const vencContainer = document.getElementById('parcelasVencimentoContainer');
+    const vencLista = document.getElementById('parcelasVencimentoLista');
+    if (!vencContainer || !vencLista) return;
+
+    const isParcelado = option && option.value && option.dataset.tipo === 'Parcelado';
+    const parcelas = parseInt(parcelasInput.value || '1');
+    const dataOrdem = (dataOrdemInput.value || '').trim();
+    if (!isParcelado || !dataOrdem || parcelas <= 1) {
+        vencContainer.style.display = 'none';
+        return;
+    }
+
+    // data_ordem vem YYYY-MM-DD
+    const [yy, mm, dd] = dataOrdem.split('-').map(x => parseInt(x));
+    const base = new Date(yy, mm - 1, dd);
+
+    let html = '<div class="row g-2">';
+    for (let n = 1; n <= parcelas; n++) {
+        const venc = new Date(base.getTime());
+        venc.setDate(venc.getDate() + (30 * n));
+        html += `
+            <div class="col-md-3">
+                <span class="badge bg-light text-dark border w-100 text-start">
+                    Parcela ${n}: ${formatarDataBR(venc)}
+                </span>
+            </div>
+        `;
+    }
+    html += '</div>';
+
+    vencLista.innerHTML = html;
+    vencContainer.style.display = 'block';
 }
 
 // Forma de pagamento - mostrar parcelas ao mudar
 document.getElementById('forma_pagamento_id').addEventListener('change', verificarParcelas);
+document.getElementById('parcelas').addEventListener('input', atualizarVencimentosParcelas);
+document.getElementById('data_ordem').addEventListener('change', atualizarVencimentosParcelas);
 
 // Verificar parcelas ao carregar a página (para edição)
 verificarParcelas();
@@ -1380,6 +1527,7 @@ document.getElementById('ordemForm').addEventListener('submit', async function(e
     
     const data = {
         cliente_id: parseInt(document.getElementById('cliente_id').value),
+        tipo_documento: document.getElementById('tipo_documento').value,
         data: document.getElementById('data_ordem').value.split('-').reverse().join('/'),
         endereco_origem: document.getElementById('endereco_origem').value,
         endereco_destino: document.getElementById('endereco_destino').value,

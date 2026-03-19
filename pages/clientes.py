@@ -46,7 +46,7 @@ def show_clientes_list():
     params = []
     
     if search_term:
-        query += " WHERE nome LIKE ? OR cnpj_cpf LIKE ?"
+        query += " WHERE nome LIKE  OR cnpj_cpf LIKE "
         params.extend([f"%{search_term}%", f"%{search_term}%"])
     
     if sort_by == "Nome":
@@ -153,7 +153,7 @@ def show_novo_cliente():
                 cursor = conn.cursor()
                 
                 if cnpj_cpf:
-                    cursor.execute("SELECT id FROM clientes WHERE cnpj_cpf = ?", (cnpj_cpf,))
+                    cursor.execute("SELECT id FROM clientes WHERE cnpj_cpf = ", (cnpj_cpf,))
                     if cursor.fetchone():
                         st.error("CNPJ/CPF já cadastrado!")
                         conn.close()
@@ -162,7 +162,7 @@ def show_novo_cliente():
                 # Inserir cliente
                 cursor.execute("""
                     INSERT INTO clientes (nome, cnpj_cpf, endereco, telefone, email)
-                    VALUES (?, ?, ?, ?, ?)
+                    VALUES (, , , , )
                 """, (nome, cnpj_cpf, endereco, telefone, email))
                 
                 conn.commit()
@@ -239,7 +239,7 @@ def show_editar_cliente():
                 cursor = conn.cursor()
                 
                 if cnpj_cpf:
-                    cursor.execute("SELECT id FROM clientes WHERE cnpj_cpf = ? AND id != ?", (cnpj_cpf, cliente_id))
+                    cursor.execute("SELECT id FROM clientes WHERE cnpj_cpf =  AND id != ", (cnpj_cpf, cliente_id))
                     if cursor.fetchone():
                         st.error("CNPJ/CPF já cadastrado para outro cliente!")
                         conn.close()
@@ -248,8 +248,8 @@ def show_editar_cliente():
                 # Atualizar cliente
                 cursor.execute("""
                     UPDATE clientes 
-                    SET nome = ?, cnpj_cpf = ?, endereco = ?, telefone = ?, email = ?
-                    WHERE id = ?
+                    SET nome = , cnpj_cpf = , endereco = , telefone = , email = 
+                    WHERE id = 
                 """, (nome, cnpj_cpf, endereco, telefone, email, cliente_id))
                 
                 conn.commit()
@@ -262,14 +262,14 @@ def show_editar_cliente():
             # Verificar se o cliente tem ordens de serviço
             conn = get_db_connection()
             cursor = conn.cursor()
-            cursor.execute("SELECT COUNT(*) FROM ordens_servico WHERE cliente_id = ?", (cliente_id,))
+            cursor.execute("SELECT COUNT(*) FROM ordens_servico WHERE cliente_id = ", (cliente_id,))
             count_os = cursor.fetchone()[0]
             
             if count_os > 0:
                 st.error(f"Não é possível excluir o cliente pois ele possui {count_os} ordem(ns) de serviço associada(s).")
             else:
                 # Excluir cliente
-                cursor.execute("DELETE FROM clientes WHERE id = ?", (cliente_id,))
+                cursor.execute("DELETE FROM clientes WHERE id = ", (cliente_id,))
                 conn.commit()
                 conn.close()
                 

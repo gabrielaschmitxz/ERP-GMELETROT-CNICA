@@ -9,11 +9,11 @@ load_dotenv()
 # Se o banco neondb_web não existir, o sistema tentará criar automaticamente
 # Ou você pode usar o banco padrão (neondb) com um schema diferente
 DATABASE_URL_WEB = os.getenv('DATABASE_URL_WEB', 
-    'postgresql://neondb_owner:npg_Uuz1QgFncm7j@ep-delicate-salad-ad4ui52h-pooler.c-2.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require')
+    'postgresql://neondb_owner:npg_Uuz1QgFncm7j@ep-delicate-salad-ad4ui52h-pooler.c-2.us-east-1.aws.neon.tech/neondbsslmode=require&channel_binding=require')
 
 # Se quiser usar um banco separado, descomente e ajuste:
 # DATABASE_URL_WEB = os.getenv('DATABASE_URL_WEB', 
-#     'postgresql://neondb_owner:npg_Uuz1QgFncm7j@ep-delicate-salad-ad4ui52h-pooler.c-2.us-east-1.aws.neon.tech/neondb_web?sslmode=require&channel_binding=require')
+#     'postgresql://neondb_owner:npg_Uuz1QgFncm7j@ep-delicate-salad-ad4ui52h-pooler.c-2.us-east-1.aws.neon.tech/neondb_websslmode=require&channel_binding=require')
 
 # Se não especificado, usa o mesmo servidor mas com nome de banco diferente
 # Para desenvolvimento local, você pode criar um arquivo .env com:
